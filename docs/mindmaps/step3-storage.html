@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Step 3 · PostgreSQL 存储</title>
+  <style>
+    :root {
+      --bg:#f5f5f7; --surface:#fff; --text:#1d1d1f;
+      --secondary:#6e6e73; --tertiary:#86868b;
+      --border:rgba(0,0,0,.08); --border-light:rgba(0,0,0,.04);
+      --shadow:0 2px 20px rgba(0,0,0,.06);
+      --blue:#0071e3; --green:#34c759; --orange:#ff9500; --purple:#5856d6;
+      --radius:20px;
+      --mono:"SF Mono",SFMono-Regular,ui-monospace,Consolas,monospace;
+    }
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{
+      font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC",sans-serif;
+      background:var(--bg);color:var(--text);
+      padding:40px 20px 72px;-webkit-font-smoothing:antialiased;
+    }
+    .wrap{max-width:1280px;margin:0 auto}
+    .nav{margin-bottom:32px}
+    .nav a{color:var(--blue);text-decoration:none;font-size:14px;font-weight:500}
+    .step{
+      display:inline-block;font-size:12px;font-weight:600;color:#248a3d;
+      background:rgba(52,199,89,.12);padding:4px 12px;border-radius:999px;margin-bottom:12px;
+    }
+    h1{font-size:clamp(28px,4vw,40px);font-weight:700;letter-spacing:-.025em;line-height:1.1;margin-bottom:10px}
+    .subtitle{font-size:17px;color:var(--secondary);line-height:1.5;margin-bottom:40px}
+
+    .section{
+      background:var(--surface);border-radius:var(--radius);
+      box-shadow:var(--shadow);border:1px solid var(--border);
+      margin-bottom:20px;overflow:hidden;
+    }
+    .section-head{
+      padding:18px 24px;border-bottom:1px solid var(--border);
+      display:flex;align-items:center;gap:12px;
+    }
+    .section-num{
+      width:28px;height:28px;border-radius:50%;flex-shrink:0;
+      display:flex;align-items:center;justify-content:center;
+      font-size:13px;font-weight:700;color:#fff;
+    }
+    .s1 .section-num{background:var(--blue)}
+    .s2 .section-num{background:var(--purple)}
+    .s3 .section-num{background:var(--orange)}
+    .section-title{font-size:17px;font-weight:600}
+
+    .tbl-grid{
+      display:grid;grid-template-columns:repeat(2,1fr);gap:14px;
+      padding:20px 20px 0;align-items:stretch;
+    }
+    @media(max-width:900px){.tbl-grid{grid-template-columns:1fr}}
+
+    .tbl-card{
+      border-radius:16px;overflow:hidden;
+      border:1px solid var(--border);
+      box-shadow:0 1px 6px rgba(0,0,0,.04);
+      display:flex;flex-direction:column;min-width:0;
+    }
+    .tbl-card .tbl-head{padding:16px 14px 12px;border-bottom:1px solid var(--border-light)}
+    .tbl-card .tbl-head h3{font-size:14px;font-weight:700;letter-spacing:-.02em;margin-bottom:3px}
+    .tbl-card .tbl-head p{font-size:11px;color:var(--tertiary);line-height:1.35}
+
+    .card-tr{border-top:3px solid var(--blue)}
+    .card-tr .tbl-head{background:linear-gradient(180deg,rgba(0,113,227,.10),rgba(0,113,227,.02))}
+    .card-tr .tbl-head h3{color:#0071e3}
+    .card-tr .data-table thead th{color:#0071e3;background:rgba(0,113,227,.06)}
+    .card-tr .row-key td{background:rgba(0,113,227,.08)!important}
+    .card-tr .row-key td:first-child{color:#0071e3;font-weight:600}
+
+    .card-sp{border-top:3px solid var(--green)}
+    .card-sp .tbl-head{background:linear-gradient(180deg,rgba(52,199,89,.12),rgba(52,199,89,.02))}
+    .card-sp .tbl-head h3{color:#248a3d}
+    .card-sp .data-table thead th{color:#248a3d;background:rgba(52,199,89,.08)}
+    .card-sp .row-key td{background:rgba(52,199,89,.10)!important}
+    .card-sp .row-key td:first-child{color:#248a3d;font-weight:600}
+
+    .data-table{width:100%;border-collapse:collapse;font-size:12px}
+    .data-table thead th{
+      text-align:left;padding:8px 12px;
+      font-size:10px;font-weight:700;
+      text-transform:uppercase;letter-spacing:.06em;
+      border-bottom:1px solid var(--border-light);
+    }
+    .data-table tbody td{
+      padding:8px 12px;border-bottom:1px solid var(--border-light);
+      vertical-align:top;line-height:1.4;
+    }
+    .data-table tbody tr:last-child td{border-bottom:none}
+    .data-table td:first-child{font-family:var(--mono);font-size:11px;font-weight:500;white-space:nowrap}
+    .data-table td:nth-child(2){color:var(--purple);font-size:11px;font-weight:500;width:28%}
+    .data-table td:nth-child(3){color:var(--secondary);font-size:11px}
+
+    .callout{
+      margin:16px 20px 20px;padding:14px 16px;border-radius:12px;
+      background:linear-gradient(135deg,rgba(0,113,227,.06),rgba(52,199,89,.04));
+      font-size:13px;color:var(--secondary);line-height:1.55;
+      border:1px solid var(--border-light);
+    }
+    .callout strong{color:var(--text)}
+    .callout code{font-family:var(--mono);font-size:12px;padding:1px 5px;border-radius:4px;background:rgba(0,0,0,.05)}
+
+    .section-body{padding:24px}
+    .files{width:100%;border-collapse:collapse;font-size:14px}
+    .files th,.files td{padding:12px 14px;text-align:left;border-bottom:1px solid var(--border-light)}
+    .files thead th{font-size:11px;font-weight:600;color:var(--tertiary);text-transform:uppercase;letter-spacing:.04em;background:#fbfbfd}
+    .files td:first-child{font-family:var(--mono);font-size:13px;font-weight:500;width:28%}
+    .files td:nth-child(2){color:var(--purple);font-weight:500;width:22%}
+    .files td:nth-child(3){color:var(--secondary);font-size:13px}
+
+    .flow{
+      font-family:var(--mono);font-size:12px;line-height:1.75;
+      background:#1d1d1f;color:#f5f5f7;border-radius:14px;
+      padding:22px 24px;overflow-x:auto;margin-top:16px;
+    }
+    .flow .dim{color:#636366}.flow .hi{color:#64d2ff}.flow .ok{color:#30d158}.flow .acc{color:#bf5af2}
+
+    .why-table{width:100%;border-collapse:collapse;font-size:14px}
+    .why-table td{padding:14px 0;border-bottom:1px solid var(--border-light);vertical-align:top}
+    .why-table tr:last-child td{border-bottom:none}
+    .why-table td:first-child{width:30%;font-weight:600;color:var(--text);padding-right:16px}
+    .why-table td:last-child{color:var(--secondary);line-height:1.5}
+
+    .swap{
+      display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:center;
+      margin-top:8px;
+    }
+    @media(max-width:700px){.swap{grid-template-columns:1fr}}
+    .swap-box{
+      border-radius:14px;padding:16px;border:1px solid var(--border);
+      background:#fbfbfd;font-size:13px;color:var(--secondary);line-height:1.5;
+    }
+    .swap-box strong{display:block;color:var(--text);font-size:14px;margin-bottom:6px}
+    .swap-arrow{text-align:center;font-size:22px;color:var(--tertiary);font-weight:300}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <nav class="nav"><a href="index.html">← 全部课程</a></nav>
+    <span class="step">Step 3</span>
+    <h1>PostgreSQL 存储</h1>
+    <p class="subtitle">把 MemoryStorage 换成 GORM 落库 · collector 零改动</p>
+
+    <!-- ① 数据层 -->
+    <section class="section s1">
+      <div class="section-head">
+        <span class="section-num">1</span>
+        <span class="section-title">数据层 · 谁写哪张表</span>
+      </div>
+
+      <div class="tbl-grid">
+        <div class="tbl-card card-tr">
+          <div class="tbl-head">
+            <h3>obs_traces</h3>
+            <p>SaveTrace · finish() 一次</p>
+          </div>
+          <table class="data-table">
+            <thead><tr><th>字段</th><th>来源</th><th>说明</th></tr></thead>
+            <tbody>
+              <tr class="row-key"><td>trace_id</td><td>newState</td><td>唯一 · OnConflict 键</td></tr>
+              <tr><td>session_id</td><td>Config</td><td>列表筛选</td></tr>
+              <tr><td>user_input / agent_output</td><td>Config / finish</td><td>总单摘要</td></tr>
+              <tr><td>total_tokens / cost</td><td>LLM OnEnd 累加</td><td>冗余汇总</td></tr>
+              <tr><td>status</td><td>finishTrace</td><td>success / error</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="tbl-card card-sp">
+          <div class="tbl-head">
+            <h3>obs_spans</h3>
+            <p>SaveSpan · 每个 OnEnd 一次</p>
+          </div>
+          <table class="data-table">
+            <thead><tr><th>字段</th><th>来源</th><th>说明</th></tr></thead>
+            <tbody>
+              <tr><td>span_id</td><td>startSpan</td><td>唯一 · OnConflict 键</td></tr>
+              <tr class="row-key"><td>trace_id</td><td>State.Trace</td><td>FK → traces</td></tr>
+              <tr><td>parent_span_id</td><td>spanStack</td><td>Span 树</td></tr>
+              <tr><td>span_type + 业务列</td><td>Handler</td><td>llm / tool / agent</td></tr>
+              <tr><td>duration_ms / status</td><td>finishSpan</td><td>步骤终态</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="callout">
+        <strong>本 Step 不写</strong>
+        <code>obs_evaluations</code>（Step 5）· 不做 metrics 聚合（Step 6）·
+        读接口 <code>GetTrace / ListTraces</code> 给 Step 4 用
+      </div>
+    </section>
+
+    <!-- ② 代码流 -->
+    <section class="section s2">
+      <div class="section-head">
+        <span class="section-num">2</span>
+        <span class="section-title">代码层 · 文件与数据流</span>
+      </div>
+      <div class="section-body">
+        <table class="files">
+          <thead><tr><th>文件</th><th>职责</th><th>说明</th></tr></thead>
+          <tbody>
+            <tr><td>interface.go</td><td>契约</td><td>Save* + Get* / List*</td></tr>
+            <tr><td>filter.go</td><td>查询条件</td><td>TraceFilter + 分页 normalize</td></tr>
+            <tr><td>errors.go</td><td>统一错误</td><td>ErrNotFound</td></tr>
+            <tr><td>memory.go</td><td>实现 A</td><td>补齐读接口，测试继续绿</td></tr>
+            <tr><td>postgres.go</td><td>实现 B</td><td>GORM · OnConflict 幂等</td></tr>
+          </tbody>
+        </table>
+
+        <pre class="flow"><span class="dim">// 换存储只换构造，collector 不动</span>
+db  := <span class="hi">OpenPostgres</span>(DSN)
+      <span class="hi">model.AutoMigrate</span>(db)
+store := <span class="ok">NewPostgresStorage</span>(db)   <span class="dim">// 原 NewMemoryStorage()</span>
+
+<span class="acc">WithObsCallback</span>(ctx, store, cfg)
+  → worker → store.<span class="ok">SaveSpan</span> / <span class="ok">SaveTrace</span>
+  → PostgreSQL  obs_spans / obs_traces</pre>
+      </div>
+    </section>
+
+    <!-- ③ 设计 -->
+    <section class="section s3">
+      <div class="section-head">
+        <span class="section-num">3</span>
+        <span class="section-title">设计理由 · 例子</span>
+      </div>
+      <div class="section-body">
+        <table class="why-table">
+          <tr><td>为什么要接口？</td><td>Step 2 用 Memory 测采集；线上换 PG 一行构造，不用碰 handler。</td></tr>
+          <tr><td>为什么 OnConflict？</td><td>按 span_id / trace_id 幂等；重试或重复 finish 不会 unique 冲突。</td></tr>
+          <tr><td>为什么现在加 Get*？</td><td>Step 4 API 马上要查；本 Step 一并实现，避免接口二次撕裂。</td></tr>
+          <tr><td>为什么不做 Eval？</td><td>评估是事后异步写，和采集落库解耦，留给 Step 5。</td></tr>
+        </table>
+
+        <div class="swap" style="margin-top:20px">
+          <div class="swap-box">
+            <strong>Step 2 验证</strong>
+            NewMemoryStorage()<br>
+            go test ./collector/ 全绿
+          </div>
+          <div class="swap-arrow">→</div>
+          <div class="swap-box">
+            <strong>Step 3 上线</strong>
+            NewPostgresStorage(db)<br>
+            AutoMigrate → 真表真数据
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+</body>
+</html>

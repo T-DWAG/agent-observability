@@ -1,0 +1,37 @@
+# Binaries
+*.exe
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+bin/
+dist/
+
+# Go
+vendor/
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+*.pem
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test / coverage
+coverage.out
+coverage.html
+
+# Local data
+*.log
+tmp/
+data/

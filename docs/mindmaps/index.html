@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Agent 可观测 · 课程脑图</title>
+  <style>
+    :root {
+      --bg: #f5f5f7;
+      --surface: #ffffff;
+      --text: #1d1d1f;
+      --text-secondary: #6e6e73;
+      --text-tertiary: #86868b;
+      --border: rgba(0,0,0,.06);
+      --shadow: 0 2px 16px rgba(0,0,0,.06);
+      --shadow-hover: 0 8px 28px rgba(0,0,0,.1);
+      --blue: #0071e3;
+      --green: #34c759;
+      --orange: #ff9500;
+      --purple: #af52de;
+      --radius: 18px;
+      --radius-sm: 12px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display",
+        "PingFang SC", "Helvetica Neue", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 48px 24px 80px;
+      -webkit-font-smoothing: antialiased;
+    }
+    .wrap { max-width: 980px; margin: 0 auto; }
+    .eyebrow {
+      font-size: 12px; font-weight: 600; letter-spacing: .06em;
+      text-transform: uppercase; color: var(--blue); margin-bottom: 8px;
+    }
+    h1 {
+      font-size: clamp(32px, 5vw, 48px); font-weight: 700;
+      letter-spacing: -.02em; line-height: 1.08; margin-bottom: 12px;
+    }
+    .lead {
+      font-size: 19px; line-height: 1.5; color: var(--text-secondary);
+      max-width: 640px; margin-bottom: 40px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 16px;
+    }
+    a.card {
+      display: block; background: var(--surface);
+      border-radius: var(--radius); padding: 24px;
+      text-decoration: none; color: inherit;
+      box-shadow: var(--shadow);
+      border: 1px solid var(--border);
+      transition: transform .25s ease, box-shadow .25s ease;
+    }
+    a.card:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-hover);
+    }
+    a.card.disabled {
+      opacity: .45; pointer-events: none;
+    }
+    .badge {
+      display: inline-block; font-size: 11px; font-weight: 600;
+      padding: 4px 10px; border-radius: 999px; margin-bottom: 14px;
+    }
+    .badge.done { background: rgba(52,199,89,.12); color: #248a3d; }
+    .badge.todo { background: rgba(0,0,0,.05); color: var(--text-tertiary); }
+    .card h2 { font-size: 21px; font-weight: 600; letter-spacing: -.01em; margin-bottom: 8px; }
+    .card p { font-size: 15px; line-height: 1.45; color: var(--text-secondary); }
+    .card-num {
+      width: 32px; height: 32px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px; font-weight: 700; color: #fff; margin-bottom: 16px;
+    }
+    .n1 { background: linear-gradient(135deg, #0071e3, #40a9ff); }
+    .n2 { background: linear-gradient(135deg, #5856d6, #af52de); }
+    .n3 { background: linear-gradient(135deg, #34c759, #30d158); }
+    footer {
+      margin-top: 48px; padding-top: 24px;
+      border-top: 1px solid var(--border);
+      font-size: 13px; color: var(--text-tertiary); line-height: 1.6;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="eyebrow">Agent Observability</div>
+    <h1>课程脑图</h1>
+    <p class="lead">自建 PostgreSQL 路线 · 浏览器打开 · 每层结构：数据表 → 代码流 → 设计说明</p>
+
+    <div class="grid">
+      <a class="card" href="step1-data-model.html">
+        <div class="card-num n1">1</div>
+        <span class="badge done">已完成</span>
+        <h2>数据模型</h2>
+        <p>Trace / Span / Evaluation 三张表，字段含义与串联关系。</p>
+      </a>
+      <a class="card" href="step2-collector.html">
+        <div class="card-num n2">2</div>
+        <span class="badge done">已完成</span>
+        <h2>Callbacks 采集器</h2>
+        <p>OnStart / OnEnd、Span 栈、异步 channel 与 handler 映射。</p>
+      </a>
+      <a class="card" href="step3-storage.html">
+        <div class="card-num n3">3</div>
+        <span class="badge todo">进行中</span>
+        <h2>PostgreSQL 存储</h2>
+        <p>Storage 接口扩展、GORM 落库、Memory ↔ PG 可切换。</p>
+      </a>
+      <a class="card disabled" href="#">
+        <div class="card-num" style="background:#d2d2d7;color:#636366">4</div>
+        <span class="badge todo">待更新</span>
+        <h2>API 层</h2>
+        <p>Trace 查询、Metrics、Evaluation 接口。</p>
+      </a>
+      <a class="card disabled" href="#">
+        <div class="card-num" style="background:#d2d2d7;color:#636366">5</div>
+        <span class="badge todo">待更新</span>
+        <h2>LLM-as-Judge</h2>
+        <p>自动化质量评估与 Evaluation 写入。</p>
+      </a>
+      <a class="card disabled" href="#">
+        <div class="card-num" style="background:#d2d2d7;color:#636366">6</div>
+        <span class="badge todo">待更新</span>
+        <h2>指标聚合</h2>
+        <p>Token、耗时、成功率与 Top Tools。</p>
+      </a>
+    </div>
+
+    <footer>
+      代码：F:\code\observability\core\observability\<br>
+      笔记：Obsidian · SOP-AI协作手册.md
+    </footer>
+  </div>
+</body>
+</html>
