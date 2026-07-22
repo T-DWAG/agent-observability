@@ -17,4 +17,7 @@ type Storage interface {
 	GetTraceSpans(ctx context.Context, traceID string) ([]*model.Span, error)
 
 	ListTraces(ctx context.Context, filter TraceFilter) ([]*model.Trace, int64, error)
+
+	SaveEvaluation(ctx context.Context, evaluation *model.Evaluation) error
+	ListEvaluations(ctx context.Context, traceID string) ([]*model.Evaluation, error)
 }

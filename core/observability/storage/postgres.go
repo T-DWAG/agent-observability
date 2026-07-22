@@ -128,3 +128,23 @@ func (p *PostgresStorage) SaveSpan(ctx context.Context, span *model.Span) error 
 	}
 	return nil
 }
+
+func (p *PostgresStorage) SaveEvaluation(ctx context.Context, eval *model.Evaluation) error {
+	if err := p.db.WithContext(ctx).Create(eval).Error; err != nil {
+		return fmt.Errorf("save evaluation: %w", err)
+	}
+	return nil
+}
+
+func (p *PostgresStorage) ListEvaluations(ctx context.Context, traceID string) ([]*model.Evaluation, error) {
+	var list []*model.Evaluation
+	err := p.db.WithContext(ctx).
+		Where("trace_id = ?", traceID).
+		Order("created_at asc").
+		Find(&list).Error
+
+	if err != nil {
+		return nil, fmt.Errorf("list evaluations: %w", err)
+	}
+	return list, nil
+}

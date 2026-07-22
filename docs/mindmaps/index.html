@@ -80,6 +80,9 @@
     .n1 { background: linear-gradient(135deg, #0071e3, #40a9ff); }
     .n2 { background: linear-gradient(135deg, #5856d6, #af52de); }
     .n3 { background: linear-gradient(135deg, #34c759, #30d158); }
+    .n4 { background: linear-gradient(135deg, #af52de, #5856d6); }
+    .n5 { background: linear-gradient(135deg, #ff9500, #ff6b00); }
+    .n6 { background: linear-gradient(135deg, #0a84ff, #64d2ff); }
     footer {
       margin-top: 48px; padding-top: 24px;
       border-top: 1px solid var(--border);
@@ -108,21 +111,21 @@
       </a>
       <a class="card" href="step3-storage.html">
         <div class="card-num n3">3</div>
-        <span class="badge todo">进行中</span>
+        <span class="badge done">已完成</span>
         <h2>PostgreSQL 存储</h2>
         <p>Storage 接口扩展、GORM 落库、Memory ↔ PG 可切换。</p>
       </a>
-      <a class="card disabled" href="#">
-        <div class="card-num" style="background:#d2d2d7;color:#636366">4</div>
-        <span class="badge todo">待更新</span>
+      <a class="card" href="step4-api.html">
+        <div class="card-num n4">4</div>
+        <span class="badge done">已完成</span>
         <h2>API 层</h2>
-        <p>Trace 查询、Metrics、Evaluation 接口。</p>
+        <p>Trace 列表 / 详情 / Spans · net/http 读接口。</p>
       </a>
-      <a class="card disabled" href="#">
-        <div class="card-num" style="background:#d2d2d7;color:#636366">5</div>
-        <span class="badge todo">待更新</span>
+      <a class="card" href="step5-judge.html">
+        <div class="card-num n5">5</div>
+        <span class="badge done">已完成</span>
         <h2>LLM-as-Judge</h2>
-        <p>自动化质量评估与 Evaluation 写入。</p>
+        <p>事后评分写入 evaluations · Fake LLM 可测。</p>
       </a>
       <a class="card disabled" href="#">
         <div class="card-num" style="background:#d2d2d7;color:#636366">6</div>

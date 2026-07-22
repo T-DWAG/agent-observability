@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Step 4 · API 层</title>
+  <style>
+    :root {
+      --bg:#f5f5f7; --surface:#fff; --text:#1d1d1f;
+      --secondary:#6e6e73; --tertiary:#86868b;
+      --border:rgba(0,0,0,.08); --border-light:rgba(0,0,0,.04);
+      --shadow:0 2px 20px rgba(0,0,0,.06);
+      --blue:#0071e3; --green:#34c759; --orange:#ff9500; --purple:#5856d6;
+      --radius:20px;
+      --mono:"SF Mono",SFMono-Regular,ui-monospace,Consolas,monospace;
+    }
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{
+      font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC",sans-serif;
+      background:var(--bg);color:var(--text);
+      padding:40px 20px 72px;-webkit-font-smoothing:antialiased;
+    }
+    .wrap{max-width:1100px;margin:0 auto}
+    .nav{margin-bottom:32px}
+    .nav a{color:var(--blue);text-decoration:none;font-size:14px;font-weight:500}
+    .step{
+      display:inline-block;font-size:12px;font-weight:600;color:var(--purple);
+      background:rgba(88,86,214,.12);padding:4px 12px;border-radius:999px;margin-bottom:12px;
+    }
+    h1{font-size:clamp(28px,4vw,40px);font-weight:700;letter-spacing:-.025em;line-height:1.1;margin-bottom:10px}
+    .subtitle{font-size:17px;color:var(--secondary);line-height:1.5;margin-bottom:40px}
+
+    .section{
+      background:var(--surface);border-radius:var(--radius);
+      box-shadow:var(--shadow);border:1px solid var(--border);
+      margin-bottom:20px;overflow:hidden;
+    }
+    .section-head{
+      padding:18px 24px;border-bottom:1px solid var(--border);
+      display:flex;align-items:center;gap:12px;
+    }
+    .section-num{
+      width:28px;height:28px;border-radius:50%;flex-shrink:0;
+      display:flex;align-items:center;justify-content:center;
+      font-size:13px;font-weight:700;color:#fff;
+    }
+    .s1 .section-num{background:var(--blue)}
+    .s2 .section-num{background:var(--purple)}
+    .s3 .section-num{background:var(--orange)}
+    .section-title{font-size:17px;font-weight:600}
+    .section-body{padding:24px}
+
+    .tbl-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;padding:20px 20px 0}
+    @media(max-width:800px){.tbl-grid{grid-template-columns:1fr}}
+    .tbl-card{
+      border-radius:16px;overflow:hidden;border:1px solid var(--border);
+      border-top:3px solid var(--blue);
+    }
+    .tbl-card.sp{border-top-color:var(--green)}
+    .tbl-head{padding:14px 16px;background:linear-gradient(180deg,rgba(0,113,227,.08),transparent)}
+    .tbl-card.sp .tbl-head{background:linear-gradient(180deg,rgba(52,199,89,.10),transparent)}
+    .tbl-head h3{font-size:14px;font-weight:700;color:#0071e3}
+    .tbl-card.sp .tbl-head h3{color:#248a3d}
+    .tbl-head p{font-size:11px;color:var(--tertiary);margin-top:2px}
+
+    table{width:100%;border-collapse:collapse;font-size:12px}
+    thead th{
+      text-align:left;padding:8px 12px;font-size:10px;font-weight:700;
+      text-transform:uppercase;letter-spacing:.05em;color:var(--tertiary);
+      background:#fbfbfd;border-bottom:1px solid var(--border-light);
+    }
+    tbody td{padding:9px 12px;border-bottom:1px solid var(--border-light);vertical-align:top;line-height:1.4}
+    tbody tr:last-child td{border-bottom:none}
+    td:first-child{font-family:var(--mono);font-size:11px;font-weight:500}
+    td:nth-child(2){color:var(--purple);font-size:11px;font-weight:500}
+    td:nth-child(3){color:var(--secondary);font-size:11px}
+
+    .callout{
+      margin:16px 20px 20px;padding:14px 16px;border-radius:12px;
+      background:linear-gradient(135deg,rgba(88,86,214,.06),rgba(0,113,227,.04));
+      font-size:13px;color:var(--secondary);line-height:1.55;border:1px solid var(--border-light);
+    }
+    .callout strong{color:var(--text)}
+    .callout code{font-family:var(--mono);font-size:12px;background:rgba(0,0,0,.05);padding:1px 5px;border-radius:4px}
+
+    .files td:first-child{width:26%}
+    .flow{
+      font-family:var(--mono);font-size:12px;line-height:1.75;
+      background:#1d1d1f;color:#f5f5f7;border-radius:14px;padding:20px 22px;margin-top:16px;
+    }
+    .flow .dim{color:#636366}.flow .hi{color:#64d2ff}.flow .ok{color:#30d158}.flow .acc{color:#bf5af2}
+
+    .why td{padding:12px 0;border-bottom:1px solid var(--border-light);font-size:14px}
+    .why tr:last-child td{border-bottom:none}
+    .why td:first-child{width:32%;font-weight:600;color:var(--text)}
+    .why td:last-child{color:var(--secondary);line-height:1.5}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <nav class="nav"><a href="index.html">← 全部课程</a></nav>
+    <span class="step">Step 4</span>
+    <h1>API 层</h1>
+    <p class="subtitle">把 Storage 读接口暴露成 HTTP JSON · 标准库 net/http</p>
+
+    <section class="section s1">
+      <div class="section-head">
+        <span class="section-num">1</span>
+        <span class="section-title">数据层 · 读哪些表 / 字段</span>
+      </div>
+      <div class="tbl-grid">
+        <div class="tbl-card">
+          <div class="tbl-head">
+            <h3>obs_traces ← 列表 / 详情</h3>
+            <p>ListTraces · GetTrace</p>
+          </div>
+          <table>
+            <thead><tr><th>JSON 字段</th><th>来源</th><th>说明</th></tr></thead>
+            <tbody>
+              <tr><td>trace_id</td><td>Trace.TraceID</td><td>路径 / 筛选主键</td></tr>
+              <tr><td>session_id</td><td>Trace.SessionID</td><td>?session_id=</td></tr>
+              <tr><td>user_input / agent_output</td><td>Trace</td><td>总单摘要</td></tr>
+              <tr><td>total_tokens / total_cost</td><td>Trace</td><td>冗余汇总</td></tr>
+              <tr><td>status</td><td>Trace.Status</td><td>?status=</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="tbl-card sp">
+          <div class="tbl-head">
+            <h3>obs_spans ← 步骤时间线</h3>
+            <p>GetTraceSpans</p>
+          </div>
+          <table>
+            <thead><tr><th>JSON 字段</th><th>来源</th><th>说明</th></tr></thead>
+            <tbody>
+              <tr><td>span_id / span_type</td><td>Span</td><td>步骤身份</td></tr>
+              <tr><td>parent_span_id</td><td>Span</td><td>树结构</td></tr>
+              <tr><td>model_name / tokens</td><td>LLM Span</td><td>可选字段</td></tr>
+              <tr><td>tool_name</td><td>Tool Span</td><td>可选字段</td></tr>
+              <tr><td>duration_ms / status</td><td>Span</td><td>耗时与成败</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="callout">
+        <strong>本 Step 不写库</strong> · 只读 Step 3 已有接口 ·
+        <code>evaluations / metrics</code> 留给 Step 5 / 6
+      </div>
+    </section>
+
+    <section class="section s2">
+      <div class="section-head">
+        <span class="section-num">2</span>
+        <span class="section-title">代码层 · 路由与文件</span>
+      </div>
+      <div class="section-body">
+        <table class="files">
+          <thead><tr><th>文件</th><th>职责</th><th>说明</th></tr></thead>
+          <tbody>
+            <tr><td>api/response.go</td><td>JSON 工具</td><td>writeJSON / writeError</td></tr>
+            <tr><td>api/server.go</td><td>路由</td><td>ServeMux + NewServer</td></tr>
+            <tr><td>api/trace.go</td><td>Handler</td><td>List / Get / Spans + DTO</td></tr>
+            <tr><td>api/trace_test.go</td><td>单测</td><td>httptest + Memory</td></tr>
+            <tr><td>cmd/server/main.go</td><td>入口</td><td>可选；DSN 选存储</td></tr>
+          </tbody>
+        </table>
+
+        <table style="margin-top:20px">
+          <thead><tr><th>Method Path</th><th>Storage</th><th>HTTP</th></tr></thead>
+          <tbody>
+            <tr><td>GET /api/v1/traces</td><td>ListTraces</td><td>200 + items/total</td></tr>
+            <tr><td>GET /api/v1/traces/{id}</td><td>GetTrace</td><td>200 / 404</td></tr>
+            <tr><td>GET /api/v1/traces/{id}/spans</td><td>GetTrace + GetTraceSpans</td><td>200 / 404</td></tr>
+            <tr><td>GET /healthz</td><td>—</td><td>200 ok</td></tr>
+          </tbody>
+        </table>
+
+        <pre class="flow"><span class="dim">// 请求流</span>
+<span class="acc">GET</span> /api/v1/traces/{id}
+  → <span class="hi">handleGetTrace</span>
+  → store.<span class="ok">GetTrace</span>
+  → <span class="dim">ErrorNotFound → 404</span>
+  → <span class="ok">toTraceDTO</span> → JSON</pre>
+      </div>
+    </section>
+
+    <section class="section s3">
+      <div class="section-head">
+        <span class="section-num">3</span>
+        <span class="section-title">设计理由 · 例子</span>
+      </div>
+      <div class="section-body">
+        <table class="why">
+          <tr><td>为什么 net/http？</td><td>零新依赖；Go 1.22 PathValue 够用；以后可换 Hertz。</td></tr>
+          <tr><td>为什么先查 Trace 再 Spans？</td><td>区分「不存在 404」和「存在但无步骤 200 []」。</td></tr>
+          <tr><td>为什么不用 GORM？</td><td>API 只认 Storage；单测用 Memory 秒跑。</td></tr>
+          <tr><td>为什么不做 Metrics？</td><td>聚合逻辑在 Step 6；本 Step 只做读 Trace。</td></tr>
+        </table>
+      </div>
+    </section>
+  </div>
+</body>
+</html>
