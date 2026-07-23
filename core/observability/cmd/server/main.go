@@ -4,9 +4,11 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/T-Dwag/agent-observability/api"
 	"github.com/T-Dwag/agent-observability/evaluation"
+	"github.com/T-Dwag/agent-observability/metrics"
 	"github.com/T-Dwag/agent-observability/model"
 	"github.com/T-Dwag/agent-observability/storage"
 )
@@ -36,9 +38,10 @@ func main() {
 	}
 
 	judge := evaluation.NewJudge(store, evaluation.FakeCompleter{})
+	agg := metrics.NewAggregator(store, 30*time.Second)
 
-	// 注入存储实现，创建 HTTP API 服务并开始监听
-	srv := api.NewServer(store).WithJudge(judge)
+	// 注入存储、Judge、Aggregator，创建 HTTP API 服务并开始监听
+	srv := api.NewServer(store).WithJudge(judge).WithAggregator(agg)
 	log.Printf("listening on %s", addr)
 	log.Fatal(http.ListenAndServe(addr, srv.Handler()))
 }

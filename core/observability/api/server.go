@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/T-Dwag/agent-observability/evaluation"
+	"github.com/T-Dwag/agent-observability/metrics"
 	"github.com/T-Dwag/agent-observability/storage"
 )
 
@@ -11,6 +12,7 @@ import (
 type Server struct {
 	store storage.Storage
 	judge *evaluation.Judge
+	agg   *metrics.Aggregator
 }
 
 func NewServer(store storage.Storage) *Server {
@@ -27,6 +29,8 @@ func (s *Server) Handler() http.Handler {
 
 	mux.HandleFunc("POST /api/v1/evaluations", s.handleCreateEvaluation)
 	mux.HandleFunc("GET /api/v1/evaluations/{trace_id}", s.handleListEvaluations)
+
+	mux.HandleFunc("GET /api/v1/metrics", s.handleGetMetrics)
 	return mux
 }
 
@@ -36,5 +40,10 @@ func (s *Server) handleHealthz(w http.ResponseWriter, _ *http.Request) {
 
 func (s *Server) WithJudge(judge *evaluation.Judge) *Server {
 	s.judge = judge
+	return s
+}
+
+func (s *Server) WithAggregator(agg *metrics.Aggregator) *Server {
+	s.agg = agg
 	return s
 }

@@ -9,9 +9,9 @@ Go + CloudWeGo Eino + PostgreSQL 的 Agent 可观测模块（教学向自建主�
 | 1 | 数据模型 `model/` | ✅ |
 | 2 | Eino Callbacks 采集 `collector/` | ✅ |
 | 3 | PostgreSQL 存储 `storage/` | ✅ |
-| 4 | API | ⬜ |
-| 5 | LLM-as-Judge | ⬜ |
-| 6 | 指标聚合 | ⬜ |
+| 4 | API | ✅ |
+| 5 | LLM-as-Judge | ✅ |
+| 6 | 指标聚合 | ✅ |
 
 ## 本地开发
 
