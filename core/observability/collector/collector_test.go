@@ -140,3 +140,80 @@ func TestWithObsCallback_FinishWithError(t *testing.T) {
 		t.Fatalf("trace status = %q, want error", store.Traces[0].Status)
 	}
 }
+
+func TestNoContent_ClearsBodies(t *testing.T) {
+	store := storage.NewMemoryStorage()
+	cfg := Config{
+		SessionID: "s1",
+		UserInput: "手机号13800138000保密",
+		NoContent: true,
+	}
+
+	ctx, _, finish := WithObsCallback(context.Background(), store, cfg)
+	st := stateFromCtx(ctx)
+
+	sp := st.startSpan(model.SpanTypeTool, "t")
+	st.finishSpan(sp.SpanID, func(s *model.Span) {
+		s.Status = model.SpanStatusSuccess
+		s.ToolInput = `{"phone":"13800138000"}`
+		s.ToolOutput = "ok"
+	})
+	finish(ctx, "最终答案含13800138000", nil)
+
+	got, err := store.GetTrace(context.Background(), TraceIDFromCtx(ctx))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.UserInput != "" || got.AgentOutput != "" {
+		t.Fatalf("want empty content, got input=%q output=%q", got.UserInput, got.AgentOutput)
+	}
+	spans, err := store.GetTraceSpans(context.Background(), got.TraceID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, sp := range spans {
+		if sp.ToolInput != "" || sp.ToolOutput != "" || sp.Reasoning != "" {
+			t.Fatalf("span content should be empty: %+v", sp)
+		}
+	}
+}
+
+func TestRedact_MasksPhone(t *testing.T) {
+	store := storage.NewMemoryStorage()
+	cfg := Config{
+		SessionID: "s1",
+		UserInput: "联系我13800138000",
+		Redact:    true,
+	}
+	ctx, _, finish := WithObsCallback(context.Background(), store, cfg)
+	finish(ctx, "回拨13800138000", nil)
+
+	got, err := store.GetTrace(context.Background(), TraceIDFromCtx(ctx))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.UserInput != "联系我1**********" {
+		t.Fatalf("user_input = %q", got.UserInput)
+	}
+	if got.AgentOutput != "回拨1**********" {
+		t.Fatalf("agent_output = %q", got.AgentOutput)
+	}
+}
+
+func TestDropIncrementsCounter_Stable(t *testing.T) {
+	old := spanChBuffer
+	spanChBuffer = 1
+	defer func() { spanChBuffer = old }()
+
+	store := storage.NewMemoryStorage()
+	st := newState(store, Config{SessionID: "s1", UserInput: "x"})
+	// 不启动 worker：channel 只有 1 格，第二次 finish 必丢
+	s1 := st.startSpan(model.SpanTypeTool, "a")
+	st.finishSpan(s1.SpanID, nil)
+	s2 := st.startSpan(model.SpanTypeTool, "b")
+	st.finishSpan(s2.SpanID, nil)
+
+	if st.Stats().DroppedSpans.Load() != 1 {
+		t.Fatalf("dropped=%d want 1", st.Stats().DroppedSpans.Load())
+	}
+}

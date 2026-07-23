@@ -20,6 +20,9 @@ func withState(ctx context.Context, s *State) context.Context {
 type Config struct {
 	SessionID string
 	UserInput string
+	TenantID  string //预留
+	NoContent bool   //是否不采集正文
+	Redact    bool   //是否打码正文
 }
 
 // WithObsCallback 为一次 Agent 执行准备采集器。
@@ -38,8 +41,7 @@ func WithObsCallback(
 	cfg Config,
 ) (context.Context, callbacks.Handler, func(context.Context, string, error)) {
 	// 一次执行对应一份 State（内含 Trace 与进行中的 Span）
-	state := newState(store, cfg.SessionID, cfg.UserInput)
-
+	state := newState(store, cfg)
 	// 独立 Background，避免业务 ctx 取消后 worker 提前退出导致未落盘
 	workerCtx, cancel := context.WithCancel(context.Background())
 	go state.runWorker(workerCtx)

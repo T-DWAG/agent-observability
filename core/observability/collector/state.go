@@ -20,7 +20,7 @@ import (
 	"github.com/google/uuid"
 )
 
-const spanChBuffer = 256 // span 通道缓冲：避免 Handler 同步路径被 Storage 慢 IO 阻塞
+var spanChBuffer = 256 // span 通道缓冲；测试可改为 1 验证丢弃计数
 
 // State 保存采集器运行时状态，管理当前 Trace、Span 栈与异步通道。
 //
@@ -32,27 +32,31 @@ type State struct {
 	Trace     *model.Trace           // 当前活跃的 Trace，finishTrace 时汇总写入
 	spanStack []string               // Span 嵌套栈（存 SpanID，LIFO）
 	pending   map[string]*model.Span // 已开始、尚未 finish 的 Span
-
-	spanCh  chan *model.Span  // 已完成 Span → worker 异步 SaveSpan
-	traceCh chan *model.Trace // 整次 Trace 完成 → worker SaveTrace 后退出
-	done    chan struct{}     // worker 退出信号，finish() 里 waitDone 等待
+	cfg       Config                 // 采集器配置
+	stats     *Stats                 // 采集器运行计数
+	spanCh    chan *model.Span       // 已完成 Span → worker 异步 SaveSpan
+	traceCh   chan *model.Trace      // 整次 Trace 完成 → worker SaveTrace 后退出
+	done      chan struct{}          // worker 退出信号，finish() 里 waitDone 等待
 }
 
-// newState 在 Agent 执行开始前创建，此时只初始化 Trace 骨架，Span 由后续回调填充。
-func newState(store storage.Storage, sessionID, userInput string) *State {
+// newState：只挂 cfg，UserInput 原样写入内存 Trace。
+// 清空/打码一律留到 applyContentPolicy（落盘前），避免两处逻辑分叉。
+func newState(store storage.Storage, cfg Config) *State {
 	now := time.Now()
 	return &State{
 		storage: store,
+		cfg:     cfg,
+		stats:   &Stats{},
 		Trace: &model.Trace{
 			TraceID:   uuid.New().String(),
-			SessionID: sessionID,
-			UserInput: userInput,
+			SessionID: cfg.SessionID,
+			UserInput: cfg.UserInput, // 原样；落盘前再过策略
 			StartTime: now,
-			Status:    model.SpanStatusPending, // running，finishTrace 时改为 success/error
+			Status:    model.SpanStatusPending,
 		},
 		pending: make(map[string]*model.Span),
 		spanCh:  make(chan *model.Span, spanChBuffer),
-		traceCh: make(chan *model.Trace, 1), // 缓冲 1 即可，一次执行只有一条 Trace
+		traceCh: make(chan *model.Trace, 1),
 		done:    make(chan struct{}),
 	}
 }
@@ -66,7 +70,7 @@ func newState(store storage.Storage, sessionID, userInput string) *State {
 // 若同 select 同时监听两者：spanCh 已 close 且缓冲未空时，trace 分支也可能就绪，
 // select 可能先收 Trace 并 return，导致剩余 Span 丢失。
 //
-// 注意：SaveSpan/SaveTrace 失败只打日志，不影响 Agent 主流程。
+// 注意：Save 经有限重试后仍失败则计数并打日志，不影响 Agent 主流程。
 func (s *State) runWorker(ctx context.Context) {
 	defer close(s.done)
 
@@ -85,15 +89,11 @@ func (s *State) runWorker(ctx context.Context) {
 					if !ok {
 						return
 					}
-					if err := s.storage.SaveTrace(ctx, trace); err != nil {
-						log.Printf("[obs] save trace failed: %v", err)
-					}
+					s.saveTraceWithRetry(ctx, trace)
 				}
 				return
 			}
-			if err := s.storage.SaveSpan(ctx, span); err != nil {
-				log.Printf("[obs] save span failed: %v", err)
-			}
+			s.saveSpanWithRetry(ctx, span)
 		}
 	}
 }
@@ -159,10 +159,14 @@ func (s *State) finishSpan(spanID string, mutate func(*model.Span)) {
 	s.popSpan()
 	s.Trace.SpanCount++
 
+	applyContentPolicy(s.cfg, nil, span)
+
 	select {
 	case s.spanCh <- span:
 	default:
-		log.Printf("[obs] span channel buffer full, dropping span: %s", spanID)
+		s.stats.DroppedSpans.Add(1)
+		log.Printf("[obs] span channel full, drop span=%s dropped=%d",
+			spanID, s.stats.DroppedSpans.Load())
 	}
 }
 
@@ -196,6 +200,7 @@ func (s *State) finishTrace(output string, runErr error) {
 		s.Trace.Status = model.SpanStatusSuccess
 	}
 
+	applyContentPolicy(s.cfg, s.Trace, nil)
 	close(s.spanCh)
 	s.traceCh <- s.Trace // 阻塞发送，配合 waitDone 保证 Trace 落盘
 }
@@ -211,4 +216,35 @@ func toJSON(v any) string {
 		return ""
 	}
 	return string(b)
+}
+
+// Stats 供测试读取计数。
+func (s *State) Stats() *Stats { return s.stats }
+
+const saveMaxAttempts = 3
+
+func (s *State) saveSpanWithRetry(ctx context.Context, span *model.Span) {
+	var err error
+	for i := 0; i < saveMaxAttempts; i++ {
+		err = s.storage.SaveSpan(ctx, span)
+		if err == nil {
+			s.stats.SaveSpanOK.Add(1)
+			return
+		}
+	}
+	s.stats.SaveSpanFails.Add(1)
+	log.Printf("[obs] save span failed after %d attempts: %v", saveMaxAttempts, err)
+}
+
+func (s *State) saveTraceWithRetry(ctx context.Context, trace *model.Trace) {
+	var err error
+	for i := 0; i < saveMaxAttempts; i++ {
+		err = s.storage.SaveTrace(ctx, trace)
+		if err == nil {
+			s.stats.SaveTraceOK.Add(1)
+			return
+		}
+	}
+	s.stats.SaveTraceFails.Add(1)
+	log.Printf("[obs] save trace failed after %d attempts: %v", saveMaxAttempts, err)
 }

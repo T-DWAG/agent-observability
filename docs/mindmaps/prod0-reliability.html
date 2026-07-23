@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>专题 0 · 可靠性与隐私</title>
+  <style>
+    :root {
+      --bg:#f5f5f7; --surface:#fff; --text:#1d1d1f;
+      --secondary:#6e6e73; --tertiary:#86868b;
+      --border:rgba(0,0,0,.08); --border-light:rgba(0,0,0,.04);
+      --shadow:0 2px 20px rgba(0,0,0,.06);
+      --blue:#0071e3; --green:#34c759; --purple:#5856d6; --orange:#ff9500; --teal:#64d2ff;
+      --radius:20px;
+      --mono:"SF Mono",SFMono-Regular,ui-monospace,Consolas,monospace;
+    }
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{
+      font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC",sans-serif;
+      background:var(--bg);color:var(--text);
+      padding:40px 20px 72px;-webkit-font-smoothing:antialiased;
+    }
+    .wrap{max-width:1100px;margin:0 auto}
+    .nav{margin-bottom:32px}
+    .nav a{color:var(--blue);text-decoration:none;font-size:14px;font-weight:500}
+    .step{
+      display:inline-block;font-size:12px;font-weight:600;color:#ff9500;
+      background:rgba(255,149,0,.14);padding:4px 12px;border-radius:999px;margin-bottom:12px;
+    }
+    h1{font-size:clamp(28px,4vw,40px);font-weight:700;letter-spacing:-.025em;margin-bottom:10px}
+    .subtitle{font-size:17px;color:var(--secondary);line-height:1.5;margin-bottom:40px}
+    .section{
+      background:var(--surface);border-radius:var(--radius);
+      box-shadow:var(--shadow);border:1px solid var(--border);
+      margin-bottom:20px;overflow:hidden;
+    }
+    .section-head{
+      padding:18px 24px;border-bottom:1px solid var(--border);
+      display:flex;align-items:center;gap:12px;
+    }
+    .section-num{
+      width:28px;height:28px;border-radius:50%;
+      display:flex;align-items:center;justify-content:center;
+      font-size:13px;font-weight:700;color:#fff;background:#ff9500;
+    }
+    .s2 .section-num{background:var(--purple)}
+    .s3 .section-num{background:var(--green)}
+    .s4 .section-num{background:var(--blue)}
+    .section-title{font-size:17px;font-weight:600}
+    .section-body{padding:24px}
+
+    table{width:100%;border-collapse:collapse;font-size:12px}
+    thead th{
+      text-align:left;padding:8px 12px;font-size:10px;font-weight:700;
+      text-transform:uppercase;letter-spacing:.05em;color:var(--tertiary);
+      background:#fbfbfd;border-bottom:1px solid var(--border-light);
+    }
+    tbody td{padding:9px 12px;border-bottom:1px solid var(--border-light);line-height:1.4;vertical-align:top}
+    tbody tr:last-child td{border-bottom:none}
+    td:first-child{font-family:var(--mono);font-size:11px;font-weight:500}
+    td:nth-child(2){color:var(--purple);font-size:11px;font-weight:500}
+    td:nth-child(3){color:var(--secondary);font-size:11px}
+
+    .flow{
+      font-family:var(--mono);font-size:12px;line-height:1.75;
+      background:#1d1d1f;color:#f5f5f7;border-radius:14px;padding:20px 22px;
+    }
+    .flow .dim{color:#636366}.flow .hi{color:#64d2ff}.flow .ok{color:#30d158}.flow .warn{color:#ff9f0a}.flow .acc{color:#bf5af2}
+
+    .why td{padding:12px 0;border-bottom:1px solid var(--border-light);font-size:14px;vertical-align:top}
+    .why tr:last-child td{border-bottom:none}
+    .why td:first-child{width:36%;font-weight:600;font-family:inherit;color:var(--text)}
+    .why td:last-child{color:var(--secondary);font-family:inherit}
+
+    .kpi{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;padding:20px}
+    @media(max-width:700px){.kpi{grid-template-columns:1fr}}
+    .kpi-card{
+      border-radius:14px;border:1px solid var(--border);padding:16px;
+      background:linear-gradient(180deg,rgba(255,149,0,.07),transparent);
+    }
+    .kpi-card h4{font-size:11px;color:var(--tertiary);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px}
+    .kpi-card p{font-size:13px;color:var(--secondary);line-height:1.45;font-family:var(--mono)}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <nav class="nav"><a href="index.html">← 全部课程</a></nav>
+    <span class="step">实践篇 · 专题 0</span>
+    <h1>可靠性与隐私</h1>
+    <p class="subtitle">背压可计数 · Save 有限重试 · NoContent / Redact 闸门（零值安全）· TenantID 仅预留</p>
+
+    <section class="section s1">
+      <div class="section-head">
+        <span class="section-num">1</span>
+        <span class="section-title">对照 · 教学现状 → 专题 0</span>
+      </div>
+      <div class="kpi">
+        <div class="kpi-card">
+          <h4>教学痛点</h4>
+          <p>满则丢 + 只 log<br>Save 失败只 log<br>正文永远明文</p>
+        </div>
+        <div class="kpi-card">
+          <h4>专题 0 补上</h4>
+          <p>Dropped / Save*Fails<br>重试 3 次<br>开关 + 脱敏</p>
+        </div>
+        <div class="kpi-card">
+          <h4>刻意不做</h4>
+          <p>改表 / 租户鉴权<br>OTel / 真挂载<br>抽样 TTL</p>
+        </div>
+      </div>
+      <div class="section-body" style="padding-top:0">
+        <table>
+          <thead><tr><th>能力</th><th>手段</th><th>说明</th></tr></thead>
+          <tbody>
+            <tr><td>丢弃可观测</td><td>Stats.DroppedSpans</td><td>仍非阻塞，避免拖死 Agent</td></tr>
+            <tr><td>落库失败可观测</td><td>Save*Fails + 重试 3</td><td>无 sleep，单测快</td></tr>
+            <tr><td>正文总闸</td><td>NoContent</td><td>零值 false=仍采正文；true 才清空（避免 CaptureContent 零值陷阱）</td></tr>
+            <tr><td>脱敏</td><td>Redact</td><td>极简手机号正则；只在落盘前 applyContentPolicy</td></tr>
+            <tr><td>租户预留</td><td>Config.TenantID</td><td>不写库，专题 2 再用</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="section s2">
+      <div class="section-head">
+        <span class="section-num">2</span>
+        <span class="section-title">代码层 · 文件与管道</span>
+      </div>
+      <div class="section-body">
+        <table>
+          <thead><tr><th>文件</th><th>职责</th><th>说明</th></tr></thead>
+          <tbody>
+            <tr><td>stats.go</td><td>计数</td><td>atomic Dropped / Save*Fails / OK</td></tr>
+            <tr><td>redact.go</td><td>策略</td><td>applyContentPolicy 清空或打码</td></tr>
+            <tr><td>context.go</td><td>Config</td><td>DefaultDevConfig / DefaultProdConfig</td></tr>
+            <tr><td>state.go</td><td>管道</td><td>finish 过策略；worker 重试</td></tr>
+            <tr><td>handler.go</td><td>尽量不动</td><td>正文统一在落盘前处理</td></tr>
+          </tbody>
+        </table>
+        <pre class="flow" style="margin-top:16px"><span class="dim">// 落盘前两道闸 + 可观测丢弃</span>
+Config.<span class="hi">NoContent</span> / <span class="hi">Redact</span>
+  → finishSpan / finishTrace
+  → <span class="acc">applyContentPolicy</span>（唯一策略点）
+  → spanCh  <span class="warn">满?</span> → DroppedSpans++
+  → worker → <span class="ok">save*WithRetry</span>（最多 3 次）
+       仍失败 → Save*Fails++</pre>
+      </div>
+    </section>
+
+    <section class="section s3">
+      <div class="section-head">
+        <span class="section-num">3</span>
+        <span class="section-title">设计理由</span>
+      </div>
+      <div class="section-body">
+        <table class="why">
+          <tr><td>为什么继续丢弃而不是阻塞？</td><td>观测不得拖垮 Agent；先保证「丢了能数清」。</td></tr>
+          <tr><td>为什么叫 NoContent 不叫 CaptureContent？</td><td>bool 零值是 false；「开启」语义的字段零值会变成关闭，旧调用 silently 丢正文。</td></tr>
+          <tr><td>为什么 newState 不提前打码？</td><td>策略只留在 applyContentPolicy，避免两处逻辑分叉。</td></tr>
+          <tr><td>为什么重试不 sleep？</td><td>专题 0 求简单可测；退避留给以后。</td></tr>
+          <tr><td>为什么不做抽样？</td><td>拍板里抽样属专题 3；本专题只装闸门。</td></tr>
+          <tr><td>为什么 TenantID 不落库？</td><td>方向预留即可；改表会干扰本专题学习焦点。</td></tr>
+        </table>
+      </div>
+    </section>
+
+    <section class="section s4">
+      <div class="section-head">
+        <span class="section-num">4</span>
+        <span class="section-title">验收 · 学完怎么自检</span>
+      </div>
+      <div class="section-body">
+        <table>
+          <thead><tr><th>用例</th><th>期望</th><th>命令</th></tr></thead>
+          <tbody>
+            <tr><td>DefaultDevConfig</td><td>旧 Pipeline 测仍绿</td><td rowspan="4" style="font-family:var(--mono);color:var(--secondary)">go test ./collector/ -count=1</td></tr>
+            <tr><td>CaptureContent=false</td><td>正文全空</td></tr>
+            <tr><td>Redact=true</td><td>手机号打码</td></tr>
+            <tr><td>buffer=1 无 worker</td><td>第二次 finish → Dropped=1</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+</body>
+</html>
