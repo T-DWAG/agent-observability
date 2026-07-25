@@ -44,24 +44,27 @@ func NewAggregator(store storage.Storage, cacheTTL time.Duration) *Aggregator {
 
 // Aggregate 按 scope 聚合当窗指标；有缓存优先走缓存，否则实时聚合
 // now 便于单测注入“当前时间”
-func (a *Aggregator) Aggregate(ctx context.Context, scope string, now time.Time) (*Snapshot, error) {
+func (a *Aggregator) Aggregate(ctx context.Context, tenantID, scope string, now time.Time) (*Snapshot, error) {
 	// 1. 计算 scope 对应的时间窗口
 	from, to, err := windowForScope(scope, now)
 	if err != nil {
 		return nil, err
 	}
 
-	// 2. 优先返回未过期缓存
+	cacheKey := tenantID + "|" + scope
+
+	// 2. 优先返回未过期缓存（按租户隔离，避免串缓存）
 	a.mu.Lock()
-	if e, ok := a.cache[scope]; ok && now.Before(e.expiresAt) {
+	if e, ok := a.cache[cacheKey]; ok && now.Before(e.expiresAt) {
 		snap := *e.snap // 浅拷贝快照副本
 		a.mu.Unlock()
 		return &snap, nil
 	}
 	a.mu.Unlock()
 
-	// 3. 全量查询窗口内 trace 数据
+	// 3. 全量查询窗口内 trace 数据（强制租户）
 	traces, err := listAllTraces(ctx, a.store, storage.TraceFilter{
+		TenantID:  tenantID,
 		StartTime: from,
 		EndTime:   to,
 	})
@@ -90,7 +93,7 @@ func (a *Aggregator) Aggregate(ctx context.Context, scope string, now time.Time)
 		}
 
 		// 6. 获取该 trace 的所有 span，统计工具调用量
-		spans, err := a.store.GetTraceSpans(ctx, tr.TraceID)
+		spans, err := a.store.GetTraceSpans(ctx, tenantID, tr.TraceID)
 		if err != nil {
 			return nil, fmt.Errorf("spans %s: %w", tr.TraceID, err)
 		}
@@ -111,7 +114,7 @@ func (a *Aggregator) Aggregate(ctx context.Context, scope string, now time.Time)
 
 	// 9. 缓存聚合结果
 	a.mu.Lock()
-	a.cache[scope] = cacheEntry{snap: snap, expiresAt: now.Add(a.cacheTTL)}
+	a.cache[cacheKey] = cacheEntry{snap: snap, expiresAt: now.Add(a.cacheTTL)}
 	a.mu.Unlock()
 
 	// 10. 返回聚合快照副本

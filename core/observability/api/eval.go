@@ -26,7 +26,8 @@ func (s *Server) handleCreateEvaluation(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	evals, err := s.judge.Evaluate(r.Context(), req.TraceID)
+	tenant := requestTenant(r)
+	evals, err := s.judge.Evaluate(r.Context(), tenant, req.TraceID)
 	if err != nil {
 		if errors.Is(err, storage.ErrorNotFound) {
 			writeError(w, http.StatusNotFound, "trace not found")
@@ -43,12 +44,13 @@ func (s *Server) handleCreateEvaluation(w http.ResponseWriter, r *http.Request) 
 }
 
 func (s *Server) handleListEvaluations(w http.ResponseWriter, r *http.Request) {
+	tenant := requestTenant(r)
 	traceID := r.PathValue("trace_id")
 	if traceID == "" {
 		writeError(w, http.StatusBadRequest, "trace_id required")
 		return
 	}
-	if _, err := s.store.GetTrace(r.Context(), traceID); err != nil {
+	if _, err := s.store.GetTrace(r.Context(), tenant, traceID); err != nil {
 		if errors.Is(err, storage.ErrorNotFound) {
 			writeError(w, http.StatusNotFound, "trace not found")
 			return

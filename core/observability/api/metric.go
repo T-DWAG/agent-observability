@@ -21,8 +21,9 @@ func (s *Server) handleGetMetrics(w http.ResponseWriter, r *http.Request) {
 	}
 	scope = strings.TrimSpace(scope)
 
+	tenant := requestTenant(r)
 	// 调用聚合器，根据指定 scope 和当前时间聚合数据
-	snap, err := s.agg.Aggregate(r.Context(), scope, time.Now().UTC())
+	snap, err := s.agg.Aggregate(r.Context(), tenant, scope, time.Now().UTC())
 	if err != nil {
 		// 如果报错原因是 scope 不合法，返回 400 错误
 		if strings.Contains(err.Error(), "invalid scope") {

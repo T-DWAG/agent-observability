@@ -13,8 +13,9 @@ type Storage interface {
 	// SaveTrace 持久化完整 Trace（含其 Span 集合）；用于按 Trace 维度写入或更新。
 	SaveTrace(ctx context.Context, trace *model.Trace) error
 
-	GetTrace(ctx context.Context, traceID string) (*model.Trace, error)
-	GetTraceSpans(ctx context.Context, traceID string) ([]*model.Span, error)
+	//添加租户ID过滤
+	GetTrace(ctx context.Context, tenantID, traceID string) (*model.Trace, error)
+	GetTraceSpans(ctx context.Context, tenantID, traceID string) ([]*model.Span, error)
 
 	ListTraces(ctx context.Context, filter TraceFilter) ([]*model.Trace, int64, error)
 

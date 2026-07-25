@@ -20,7 +20,7 @@ func NewServer(store storage.Storage) *Server {
 }
 
 // Handler 返回已注册路由的 http.Handler。
-func (s *Server) Handler() http.Handler {
+func (s *Server) Handler(key APIKeyStore) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", s.handleHealthz)
 	mux.HandleFunc("GET /api/v1/traces", s.handleListTraces)
@@ -31,7 +31,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/v1/evaluations/{trace_id}", s.handleListEvaluations)
 
 	mux.HandleFunc("GET /api/v1/metrics", s.handleGetMetrics)
-	return mux
+	return AuthMiddleware(key, mux)
 }
 
 func (s *Server) handleHealthz(w http.ResponseWriter, _ *http.Request) {

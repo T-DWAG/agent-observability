@@ -53,12 +53,20 @@ func newState(store storage.Storage, cfg Config) *State {
 			UserInput: cfg.UserInput, // 原样；落盘前再过策略
 			StartTime: now,
 			Status:    model.SpanStatusPending,
+			TenantID:  normalizeTenant(cfg.TenantID),
 		},
 		pending: make(map[string]*model.Span),
 		spanCh:  make(chan *model.Span, spanChBuffer),
 		traceCh: make(chan *model.Trace, 1),
 		done:    make(chan struct{}),
 	}
+}
+
+func normalizeTenant(id string) string {
+	if id == "" {
+		return "default"
+	}
+	return id
 }
 
 // runWorker 在独立 goroutine 中消费 channel，把落盘 IO 与 Agent 主路径解耦。

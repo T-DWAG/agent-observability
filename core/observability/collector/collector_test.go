@@ -160,14 +160,14 @@ func TestNoContent_ClearsBodies(t *testing.T) {
 	})
 	finish(ctx, "最终答案含13800138000", nil)
 
-	got, err := store.GetTrace(context.Background(), TraceIDFromCtx(ctx))
+	got, err := store.GetTrace(context.Background(), "default", TraceIDFromCtx(ctx))
 	if err != nil {
 		t.Fatal(err)
 	}
 	if got.UserInput != "" || got.AgentOutput != "" {
 		t.Fatalf("want empty content, got input=%q output=%q", got.UserInput, got.AgentOutput)
 	}
-	spans, err := store.GetTraceSpans(context.Background(), got.TraceID)
+	spans, err := store.GetTraceSpans(context.Background(), "default", got.TraceID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -188,7 +188,7 @@ func TestRedact_MasksPhone(t *testing.T) {
 	ctx, _, finish := WithObsCallback(context.Background(), store, cfg)
 	finish(ctx, "回拨13800138000", nil)
 
-	got, err := store.GetTrace(context.Background(), TraceIDFromCtx(ctx))
+	got, err := store.GetTrace(context.Background(), "default", TraceIDFromCtx(ctx))
 	if err != nil {
 		t.Fatal(err)
 	}

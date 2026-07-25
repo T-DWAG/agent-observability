@@ -43,7 +43,12 @@ func main() {
 	// 注入存储、Judge、Aggregator，创建 HTTP API 服务并开始监听
 	srv := api.NewServer(store).WithJudge(judge).WithAggregator(agg)
 	log.Printf("listening on %s", addr)
-	log.Fatal(http.ListenAndServe(addr, srv.Handler()))
+
+	keys := api.LoadAPIKeysFromEnv()
+	if len(keys) == 0 {
+		log.Fatal("set OBS_API_KEYS=key:tenant (e.g. dev-key:default)")
+	}
+	log.Fatal(http.ListenAndServe(addr, srv.Handler(keys)))
 }
 
 // envOr 读取环境变量；为空时返回默认值

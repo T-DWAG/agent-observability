@@ -31,6 +31,7 @@ func TestPostgresStorage_SaveAndGet(t *testing.T) {
 
 	tr := &model.Trace{
 		TraceID:   traceID,
+		TenantID:  "default",
 		SessionID: "s-pg-test",
 		UserInput: "hello",
 		StartTime: now,
@@ -53,7 +54,7 @@ func TestPostgresStorage_SaveAndGet(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	got, err := store.GetTrace(ctx, traceID)
+	got, err := store.GetTrace(ctx, "default", traceID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -64,7 +65,7 @@ func TestPostgresStorage_SaveAndGet(t *testing.T) {
 		t.Fatalf("session_id = %q", got.SessionID)
 	}
 
-	spans, err := store.GetTraceSpans(ctx, traceID)
+	spans, err := store.GetTraceSpans(ctx, "default", traceID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -80,7 +81,7 @@ func TestPostgresStorage_SaveAndGet(t *testing.T) {
 	if err := store.SaveTrace(ctx, tr); err != nil {
 		t.Fatal(err)
 	}
-	got2, err := store.GetTrace(ctx, traceID)
+	got2, err := store.GetTrace(ctx, "default", traceID)
 	if err != nil {
 		t.Fatal(err)
 	}

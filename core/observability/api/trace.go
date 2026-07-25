@@ -19,6 +19,7 @@ type listTracesResponse struct {
 
 type traceDTO struct {
 	TraceID     string  `json:"trace_id"`
+	TenantID    string  `json:"tenant_id"`
 	SessionID   string  `json:"session_id"`
 	UserInput   string  `json:"user_input"`
 	AgentOutput string  `json:"agent_output"`
@@ -49,11 +50,13 @@ type spanDTO struct {
 }
 
 func (s *Server) handleListTraces(w http.ResponseWriter, r *http.Request) {
+	tenant := requestTenant(r) // 核心鉴权接入前返回 "default"；你手敲 Auth 后会变成 ctx 里的租户
 	q := r.URL.Query()
 	page, _ := strconv.Atoi(q.Get("page"))
 	size, _ := strconv.Atoi(q.Get("size"))
 
 	filters := storage.TraceFilter{
+		TenantID:  tenant,
 		SessionID: q.Get("session_id"),
 		Status:    q.Get("status"),
 		Page:      page,
@@ -93,13 +96,14 @@ func (s *Server) handleListTraces(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleGetTrace(w http.ResponseWriter, r *http.Request) {
+	tenant := requestTenant(r)
 	id := r.PathValue("id")
 	if id == "" {
 		writeError(w, http.StatusBadRequest, "trace id is required")
 		return
 	}
 
-	tr, err := s.store.GetTrace(r.Context(), id)
+	tr, err := s.store.GetTrace(r.Context(), tenant, id)
 	if err != nil {
 		if errors.Is(err, storage.ErrorNotFound) {
 			writeError(w, http.StatusNotFound, "trace not found")
@@ -112,26 +116,19 @@ func (s *Server) handleGetTrace(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleGetTraceSpans(w http.ResponseWriter, r *http.Request) {
-	//1、从路径中获取 trace id
+	tenant := requestTenant(r)
 	id := r.PathValue("id")
-
-	//2、不成功就返回 400
 	if id == "" {
 		writeError(w, http.StatusBadRequest, "trace id is required")
 		return
 	}
 
-	if _, err := s.store.GetTrace(r.Context(), id); err != nil {
+	spans, err := s.store.GetTraceSpans(r.Context(), tenant, id)
+	if err != nil {
 		if errors.Is(err, storage.ErrorNotFound) {
 			writeError(w, http.StatusNotFound, "trace not found")
 			return
 		}
-		writeError(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-
-	spans, err := s.store.GetTraceSpans(r.Context(), id)
-	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -152,6 +149,7 @@ func (s *Server) handleGetTraceSpans(w http.ResponseWriter, r *http.Request) {
 func toTraceDTO(tr *model.Trace) *traceDTO {
 	dto := &traceDTO{
 		TraceID:     tr.TraceID,
+		TenantID:    tr.TenantID,
 		SessionID:   tr.SessionID,
 		UserInput:   tr.UserInput,
 		AgentOutput: tr.AgentOutput,

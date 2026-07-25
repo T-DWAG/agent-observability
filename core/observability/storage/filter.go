@@ -3,6 +3,7 @@ package storage
 import "time"
 
 type TraceFilter struct {
+	TenantID  string // List 必填（API 层从 Key 注入；空则调用方应先 normalize）
 	SessionID string
 	Status    string
 	Page      int
@@ -12,6 +13,7 @@ type TraceFilter struct {
 }
 
 func (f TraceFilter) normalize() TraceFilter {
+	f.TenantID = normalizeTenantID(f.TenantID)
 	if f.Page <= 0 {
 		f.Page = 1
 	}

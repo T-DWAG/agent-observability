@@ -20,7 +20,7 @@ func withState(ctx context.Context, s *State) context.Context {
 type Config struct {
 	SessionID string
 	UserInput string
-	TenantID  string //预留
+	TenantID  string // 专题2：写入 Trace.TenantID
 	NoContent bool   //是否不采集正文
 	Redact    bool   //是否打码正文
 }

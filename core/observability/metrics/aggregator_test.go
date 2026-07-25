@@ -55,7 +55,7 @@ func TestAggregate_Last24h(t *testing.T) {
 	})
 
 	agg := NewAggregator(store, time.Minute)
-	snap, err := agg.Aggregate(ctx, ScopeLast24h, now)
+	snap, err := agg.Aggregate(ctx, "default", ScopeLast24h, now)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -84,7 +84,7 @@ func TestAggregate_Last24h(t *testing.T) {
 // 测试聚合接口遇到不受支持的scope时，是否能正确返回错误
 func TestAggregate_InvalidScope(t *testing.T) {
 	agg := NewAggregator(storage.NewMemoryStorage(), 0)
-	_, err := agg.Aggregate(context.Background(), "yesterday", time.Now())
+	_, err := agg.Aggregate(context.Background(), "default", "yesterday", time.Now())
 	if err == nil {
 		t.Fatal("want error")
 	}
@@ -105,7 +105,7 @@ func TestAggregate_CacheHit(t *testing.T) {
 	})
 
 	agg := NewAggregator(store, time.Minute) // 设置1分钟缓存
-	s1, err := agg.Aggregate(ctx, ScopeLast24h, now)
+	s1, err := agg.Aggregate(ctx, "default", ScopeLast24h, now)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -117,7 +117,7 @@ func TestAggregate_CacheHit(t *testing.T) {
 	})
 
 	// 因为距离上一次聚合仅过一秒，缓存尚未失效，应仍然命中缓存，结果未变
-	s2, err := agg.Aggregate(ctx, ScopeLast24h, now.Add(time.Second))
+	s2, err := agg.Aggregate(ctx, "default", ScopeLast24h, now.Add(time.Second))
 	if err != nil {
 		t.Fatal(err)
 	}

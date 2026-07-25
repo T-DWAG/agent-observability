@@ -31,13 +31,12 @@ type judgePayload struct {
 	Efficiency dimScore `json:"efficiency"`
 }
 
-func (j *Judge) Evaluate(ctx context.Context, traceID string) ([]*model.Evaluation, error) {
-
-	tr, err := j.store.GetTrace(ctx, traceID)
+func (j *Judge) Evaluate(ctx context.Context, tenantID, traceID string) ([]*model.Evaluation, error) {
+	tr, err := j.store.GetTrace(ctx, tenantID, traceID)
 	if err != nil {
 		return nil, err
 	}
-	spans, err := j.store.GetTraceSpans(ctx, traceID)
+	spans, err := j.store.GetTraceSpans(ctx, tenantID, traceID)
 	if err != nil {
 		return nil, fmt.Errorf("get trace spans: %w", err)
 	}

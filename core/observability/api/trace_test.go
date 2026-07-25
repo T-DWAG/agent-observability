@@ -20,6 +20,7 @@ func seedStore(t *testing.T) storage.Storage {
 
 	tr := &model.Trace{
 		TraceID:     "tr-001",
+		TenantID:    "default",
 		SessionID:   "sess-a",
 		UserInput:   "北京天气？",
 		AgentOutput: "25°C",
@@ -54,7 +55,7 @@ func TestHealthz(t *testing.T) {
 	srv := NewServer(storage.NewMemoryStorage())
 	req := httptest.NewRequest(http.MethodGet, "/healthz", nil)
 	rec := httptest.NewRecorder()
-	srv.Handler().ServeHTTP(rec, req)
+	srv.Handler(testAPIKeys()).ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d", rec.Code)
 	}
@@ -62,9 +63,9 @@ func TestHealthz(t *testing.T) {
 
 func TestGetTrace_OK(t *testing.T) {
 	srv := NewServer(seedStore(t))
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/traces/tr-001", nil)
+	req := withTestAuth(httptest.NewRequest(http.MethodGet, "/api/v1/traces/tr-001", nil))
 	rec := httptest.NewRecorder()
-	srv.Handler().ServeHTTP(rec, req)
+	srv.Handler(testAPIKeys()).ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d body=%s", rec.Code, rec.Body.String())
 	}
@@ -79,9 +80,9 @@ func TestGetTrace_OK(t *testing.T) {
 
 func TestGetTrace_NotFound(t *testing.T) {
 	srv := NewServer(seedStore(t))
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/traces/no-such", nil)
+	req := withTestAuth(httptest.NewRequest(http.MethodGet, "/api/v1/traces/no-such", nil))
 	rec := httptest.NewRecorder()
-	srv.Handler().ServeHTTP(rec, req)
+	srv.Handler(testAPIKeys()).ServeHTTP(rec, req)
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("status = %d", rec.Code)
 	}
@@ -89,9 +90,9 @@ func TestGetTrace_NotFound(t *testing.T) {
 
 func TestListTraces_FilterSession(t *testing.T) {
 	srv := NewServer(seedStore(t))
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/traces?session_id=sess-a&page=1&size=10", nil)
+	req := withTestAuth(httptest.NewRequest(http.MethodGet, "/api/v1/traces?session_id=sess-a&page=1&size=10", nil))
 	rec := httptest.NewRecorder()
-	srv.Handler().ServeHTTP(rec, req)
+	srv.Handler(testAPIKeys()).ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d", rec.Code)
 	}
@@ -106,9 +107,9 @@ func TestListTraces_FilterSession(t *testing.T) {
 
 func TestGetTraceSpans(t *testing.T) {
 	srv := NewServer(seedStore(t))
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/traces/tr-001/spans", nil)
+	req := withTestAuth(httptest.NewRequest(http.MethodGet, "/api/v1/traces/tr-001/spans", nil))
 	rec := httptest.NewRecorder()
-	srv.Handler().ServeHTTP(rec, req)
+	srv.Handler(testAPIKeys()).ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d body=%s", rec.Code, rec.Body.String())
 	}

@@ -51,24 +51,27 @@ func (p *PostgresStorage) SaveTrace(ctx context.Context, trace *model.Trace) err
 	return nil
 }
 
-func (p *PostgresStorage) GetTrace(ctx context.Context, traceID string) (*model.Trace, error) {
+func (p *PostgresStorage) GetTrace(ctx context.Context, tenantID, traceID string) (*model.Trace, error) {
 	var tr model.Trace
-	err := p.db.WithContext(ctx).Where("trace_id = ?", traceID).First(&tr).Error
+	err := p.db.WithContext(ctx).
+		Where("trace_id = ? AND tenant_id = ?", traceID, normalizeTenantID(tenantID)).
+		First(&tr).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, ErrorNotFound
 	}
-
 	if err != nil {
 		return nil, fmt.Errorf("get trace: %w", err)
 	}
 	return &tr, nil
 }
 
-func (p *PostgresStorage) GetTraceSpans(ctx context.Context, traceID string) ([]*model.Span, error) {
+func (p *PostgresStorage) GetTraceSpans(ctx context.Context, tenantID, traceID string) ([]*model.Span, error) {
+	if _, err := p.GetTrace(ctx, tenantID, traceID); err != nil {
+		return nil, err
+	}
 	var spans []*model.Span
-	err := p.db.WithContext(ctx).Where("trace_id =?", traceID).
+	err := p.db.WithContext(ctx).Where("trace_id = ?", traceID).
 		Order("start_time ASC").Find(&spans).Error
-
 	if err != nil {
 		return nil, fmt.Errorf("get trace spans: %w", err)
 	}
@@ -81,6 +84,8 @@ func (p *PostgresStorage) ListTraces(ctx context.Context, filter TraceFilter) ([
 	// 补齐默认分页参数（比如 Page/Size 非法时落到合理值），避免后面 Offset/Limit 算出负数或 0
 	filter = filter.normalize()
 	q := p.db.WithContext(ctx).Model(&model.Trace{})
+	// 租户强制隔离（空 → default）
+	q = q.Where("tenant_id = ?", normalizeTenantID(filter.TenantID))
 
 	// 按需叠加过滤条件：有值才加 WHERE，空值表示“不限”
 	if filter.SessionID != "" {

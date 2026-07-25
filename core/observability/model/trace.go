@@ -7,6 +7,7 @@ import "time"
 type Trace struct {
 	ID        int64  `gorm:"primaryKey;autoIncrement"`
 	TraceID   string `gorm:"uniqueIndex;size:64;not null"`
+	TenantID  string `gorm:"index;size:64;not null;default:default"`
 	SessionID string `gorm:"index;size:64"` // 同一会话多次 Trace 可关联
 
 	UserInput   string `gorm:"type:text"`
