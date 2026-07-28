@@ -23,8 +23,9 @@ func TestWithObsCallback_Pipeline(t *testing.T) {
 	store := storage.NewMemoryStorage()
 
 	ctx, handler, finish := WithObsCallback(context.Background(), store, Config{
-		SessionID: "session-test-001",
-		UserInput: "北京今天天气怎么样？",
+		SessionID:         "session-test-001",
+		UserInput:         "北京今天天气怎么样？",
+		SampleSuccessRate: -1, // 专题3：0 会丢弃成功 Trace；测试默认全留
 	})
 	if handler == nil {
 		t.Fatal("handler is nil")
@@ -144,9 +145,10 @@ func TestWithObsCallback_FinishWithError(t *testing.T) {
 func TestNoContent_ClearsBodies(t *testing.T) {
 	store := storage.NewMemoryStorage()
 	cfg := Config{
-		SessionID: "s1",
-		UserInput: "手机号13800138000保密",
-		NoContent: true,
+		SessionID:         "s1",
+		UserInput:         "手机号13800138000保密",
+		NoContent:         true,
+		SampleSuccessRate: -1,
 	}
 
 	ctx, _, finish := WithObsCallback(context.Background(), store, cfg)
@@ -181,9 +183,10 @@ func TestNoContent_ClearsBodies(t *testing.T) {
 func TestRedact_MasksPhone(t *testing.T) {
 	store := storage.NewMemoryStorage()
 	cfg := Config{
-		SessionID: "s1",
-		UserInput: "联系我13800138000",
-		Redact:    true,
+		SessionID:         "s1",
+		UserInput:         "联系我13800138000",
+		Redact:            true,
+		SampleSuccessRate: -1,
 	}
 	ctx, _, finish := WithObsCallback(context.Background(), store, cfg)
 	finish(ctx, "回拨13800138000", nil)

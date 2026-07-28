@@ -16,16 +16,33 @@ func EstimateCost(
 
 func lookupRates(modelName string) (promptPerM, completionPerM float64) { //查询模型成本
 	name := strings.ToLower(modelName)
-	switch {
-	case strings.Contains(name, "gpt-4o-mini"):
-		return 0.15, 0.60
-	case strings.Contains(name, "gpt-4o"):
-		return 2.5, 10.0
-	case strings.Contains(name, "deepseek"):
-		return 0.27, 1.1
-	case strings.Contains(name, "claude-3.5") || strings.Contains(name, "claude-3-5"):
-		return 3.0, 15.0
-	default:
-		return 0.15, 0.60
+	for key, r := range priceTable {
+		if strings.Contains(name, key) {
+			return r.PromptPerM, r.CompletionPerM
+		}
 	}
+	return 0.15, 0.60
+}
+
+type TokenRates struct {
+	PromptPerM     float64 //提示词每百万tokens成本
+	CompletionPerM float64 //完成词每百万tokens成本
+}
+
+var defaultRates = map[string]TokenRates{
+	"gpt-4o-mini": {0.15, 0.60},
+	"gpt-4o":      {2.5, 10.0},
+	"deepseek":    {0.27, 1.1},
+	"claude-3.5":  {3.0, 15.0},
+	"claude-3-5":  {3.0, 15.0},
+}
+
+var priceTable = defaultRates
+
+func SetPriceTable(m map[string]TokenRates) {
+	if m == nil {
+		priceTable = defaultRates
+		return
+	}
+	priceTable = m
 }

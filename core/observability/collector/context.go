@@ -23,6 +23,11 @@ type Config struct {
 	TenantID  string // 专题2：写入 Trace.TenantID
 	NoContent bool   //是否不采集正文
 	Redact    bool   //是否打码正文
+
+	// 专题3（本地进行中，未推代码仓）
+	SampleSuccessRate float64
+	CostKeepUSD       float64
+	CostAlertUSD      float64
 }
 
 // WithObsCallback 为一次 Agent 执行准备采集器。

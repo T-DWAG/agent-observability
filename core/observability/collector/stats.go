@@ -10,6 +10,8 @@ type Stats struct {
 	SaveTraceFails atomic.Int64 // 持久化 Trace 失败次数
 	SaveSpanOK     atomic.Int64 // 持久化 Span 成功次数
 	SaveTraceOK    atomic.Int64 // 持久化 Trace 成功次数
+
+	SampledOutTraces atomic.Int64 // 专题3：采样丢弃（本地进行中）
 }
 
 // snapshot 原子读取当前各计数快照，供测试断言或 /metrics 导出。

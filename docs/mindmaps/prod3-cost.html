@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>专题 1 · 真实挂载</title>
+  <title>专题 3 · 采样 · 保留 · 成本</title>
   <style>
     :root {
       --bg:#f5f5f7; --surface:#fff; --text:#1d1d1f;
@@ -41,7 +41,7 @@
     .section-num{
       width:28px;height:28px;border-radius:50%;
       display:flex;align-items:center;justify-content:center;
-      font-size:13px;font-weight:700;color:#fff;background:#ff9500;
+      font-size:13px;font-weight:700;color:#fff;background:var(--orange);
     }
     .s2 .section-num{background:var(--purple)}
     .s3 .section-num{background:var(--green)}
@@ -63,7 +63,7 @@
       font-family:var(--mono);font-size:12px;line-height:1.75;
       background:#1d1d1f;color:#f5f5f7;border-radius:14px;padding:20px 22px;
     }
-    .flow .dim{color:#636366}.flow .hi{color:#64d2ff}.flow .ok{color:#30d158}.flow .acc{color:#bf5af2}
+    .flow .dim{color:#636366}.flow .hi{color:#64d2ff}.flow .ok{color:#30d158}.flow .acc{color:#bf5af2}.flow .warn{color:#ff9f0a}
     .why td{padding:12px 0;border-bottom:1px solid var(--border-light);font-size:14px;vertical-align:top}
     .why tr:last-child td{border-bottom:none}
     .why td:first-child{width:38%;font-weight:600;font-family:inherit}
@@ -73,47 +73,39 @@
 <body>
   <div class="wrap">
     <nav class="nav"><a href="index.html">← 全部课程</a></nav>
-    <span class="step">实践篇 · 专题 1</span>
-    <h1>真实挂载</h1>
-    <p class="subtitle">真 LLM（OpenAI / Claude）· 文件助手 list_files / read_file · 不用天气玩具</p>
+    <span class="step">实践篇 · 专题 3</span>
+    <h1>采样 · 保留 · 成本</h1>
+    <p class="subtitle">生产收紧：成功抽样 · TTL 清理 · 单价可配 · 尖刺打日志</p>
 
     <section class="section s1">
       <div class="section-head">
         <span class="section-num">1</span>
-        <span class="section-title">案例 · 工作区文件助手</span>
+        <span class="section-title">三道闸</span>
       </div>
       <div class="section-body">
         <table>
-          <thead><tr><th>工具</th><th>作用</th><th>约束</th></tr></thead>
+          <thead><tr><th>闸</th><th>问题</th><th>本专题落地</th></tr></thead>
           <tbody>
-            <tr><td>list_files</td><td>列 sandbox 文件</td><td>只读目录</td></tr>
-            <tr><td>read_file</td><td>读文本内容</td><td>禁路径穿越 · 限 8KiB</td></tr>
+            <tr><td>采样</td><td>这条还存吗？</td><td>shouldKeep + PurgeTrace</td></tr>
+            <tr><td>保留</td><td>存多久？</td><td>PurgeBefore + OBS_RETENTION_DAYS</td></tr>
+            <tr><td>成本</td><td>花多少？谁贵？</td><td>单价表 + CostAlert 日志</td></tr>
           </tbody>
         </table>
-        <p style="margin-top:12px;font-size:13px;color:var(--secondary)">问法示例：sandbox 里有什么？obs_hints.md 在讲什么？</p>
       </div>
     </section>
 
     <section class="section s2">
       <div class="section-head">
         <span class="section-num">2</span>
-        <span class="section-title">代码 · example/fileagent</span>
+        <span class="section-title">采样管道</span>
       </div>
       <div class="section-body">
-        <table>
-          <thead><tr><th>文件</th><th>职责</th><th>说明</th></tr></thead>
-          <tbody>
-            <tr><td>model.go</td><td>openai|claude</td><td>真模型，无 Fake</td></tr>
-            <tr><td>tools.go</td><td>两工具</td><td>sandbox 安全拼接</td></tr>
-            <tr><td>run.go</td><td>挂载</td><td>WithCallbacks(handler)</td></tr>
-            <tr><td>sandbox/*</td><td>语料</td><td>README + obs_hints</td></tr>
-          </tbody>
-        </table>
-        <pre class="flow" style="margin-top:16px"><span class="dim">// 挂载</span>
-cm := <span class="hi">newChatModel</span>(openai|claude)
-tools := list_files + read_file
-Runner.Query(q, <span class="acc">adk.WithCallbacks(handler)</span>)
-<span class="ok">finish</span>(drain(iter))</pre>
+        <pre class="flow"><span class="dim">finishTrace</span>
+  status / TotalCost 已齐
+  → <span class="hi">shouldKeep</span>?
+       <span class="ok">error</span> / cost≥阈值 → 必留 → SaveTrace
+       success → SampleSuccessRate 掷骰
+       不留 → <span class="warn">SampledOut++</span> → <span class="acc">PurgeTrace</span></pre>
       </div>
     </section>
 
@@ -124,9 +116,10 @@ Runner.Query(q, <span class="acc">adk.WithCallbacks(handler)</span>)
       </div>
       <div class="section-body">
         <table class="why">
-          <tr><td>为什么弃天气？</td><td>工具假、场景空，看不出「为何调工具」。</td></tr>
-          <tr><td>为什么文件助手？</td><td>工具真实、可审 IO；贴近工程 Agent。</td></tr>
-          <tr><td>为什么锁 sandbox？</td><td>演示安全：禁止读任意盘符。</td></tr>
+          <tr><td>为何尾部判定？</td><td>要先知道成败与费用，才能「错全留、贵全留」。</td></tr>
+          <tr><td>为何要 Purge？</td><td>Span 执行中已写入；只丢 Trace 会留孤儿行。</td></tr>
+          <tr><td>rate&lt;0 当全留？</td><td>兼容旧 Config{}；显式 0 才测「成功全丢」。</td></tr>
+          <tr><td>告警为何只打 log？</td><td>先证明闸门；webhook 后置。</td></tr>
         </table>
       </div>
     </section>
@@ -140,9 +133,11 @@ Runner.Query(q, <span class="acc">adk.WithCallbacks(handler)</span>)
         <table>
           <thead><tr><th>动作</th><th>期望</th></tr></thead>
           <tbody>
-            <tr><td>go run ./example/fileagent/</td><td>出现 list_files 和/或 read_file Span</td></tr>
-            <tr><td>回答内容</td><td>对齐 sandbox 文本，不瞎编</td></tr>
-            <tr><td>-redact</td><td>user_in 手机号打码</td></tr>
+            <tr><td>error + rate=0</td><td>仍落库</td></tr>
+            <tr><td>success + rate=0</td><td>无 Trace；SampledOut≥1</td></tr>
+            <tr><td>cost≥CostKeep</td><td>必留</td></tr>
+            <tr><td>PurgeBefore</td><td>旧数据删除</td></tr>
+            <tr><td>SetPriceTable</td><td>EstimateCost 变化</td></tr>
           </tbody>
         </table>
       </div>

@@ -15,8 +15,9 @@ func TestMount_Live(t *testing.T) {
 	}
 	store := storage.NewMemoryStorage()
 	cfg := collector.Config{
-		SessionID: "mount-live",
-		UserInput: "sandbox 里有哪些文件？请根据工具结果简要说明 obs_hints.md 在讲什么。",
+		SessionID:         "mount-live",
+		UserInput:         "sandbox 里有哪些文件？请根据工具结果简要说明 obs_hints.md 在讲什么。",
+		SampleSuccessRate: -1,
 	}
 	traceID, answer, err := runOnce(context.Background(), store, cfg, cfg.UserInput)
 	if err != nil {
@@ -67,9 +68,10 @@ func TestMount_LiveRedact(t *testing.T) {
 	}
 	store := storage.NewMemoryStorage()
 	cfg := collector.Config{
-		SessionID: "mount-redact",
-		UserInput: "联系我13800138000，列出 sandbox 文件",
-		Redact:    true,
+		SessionID:         "mount-redact",
+		UserInput:         "联系我13800138000，列出 sandbox 文件",
+		Redact:            true,
+		SampleSuccessRate: -1,
 	}
 	traceID, _, err := runOnce(context.Background(), store, cfg, cfg.UserInput)
 	if err != nil {

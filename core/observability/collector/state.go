@@ -37,6 +37,8 @@ type State struct {
 	spanCh    chan *model.Span       // 已完成 Span → worker 异步 SaveSpan
 	traceCh   chan *model.Trace      // 整次 Trace 完成 → worker SaveTrace 后退出
 	done      chan struct{}          // worker 退出信号，finish() 里 waitDone 等待
+
+	discard bool
 }
 
 // newState：只挂 cfg，UserInput 原样写入内存 Trace。
@@ -97,9 +99,19 @@ func (s *State) runWorker(ctx context.Context) {
 					if !ok {
 						return
 					}
+					if s.discard {
+						tenant := normalizeTenant(trace.TenantID) // 注意 tenant 必须 normalize
+						if err := s.storage.PurgeTrace(ctx, tenant, trace.TraceID); err != nil {
+							log.Printf("[obs] purge after sample drop : %v", err)
+						}
+						return
+					}
 					s.saveTraceWithRetry(ctx, trace)
 				}
 				return
+			}
+			if s.discard {
+				continue
 			}
 			s.saveSpanWithRetry(ctx, span)
 		}
@@ -209,6 +221,24 @@ func (s *State) finishTrace(output string, runErr error) {
 	}
 
 	applyContentPolicy(s.cfg, s.Trace, nil)
+
+	// 成本告警：仅打日志，不改变采样/落盘决策。
+	// CostAlertUSD <= 0 表示关闭告警；达到阈值时输出 trace/tenant/cost，便于运维巡检。
+	if s.cfg.CostAlertUSD > 0 && s.Trace.TotalCost >= s.cfg.CostAlertUSD {
+		log.Printf("[obs] cost alert trace=%s tenant=%s cost=%.6f threshold=%.6f",
+			s.Trace.TraceID, s.Trace.TenantID, s.Trace.TotalCost, s.cfg.CostAlertUSD)
+	}
+
+	// 采样决策：shouldKeep 综合 status / 成本阈值 / SampleSuccessRate。
+	// 不保留时置 discard，worker 侧跳过 SaveTrace/SaveSpan，并累计 SampledOutTraces。
+	keep := shouldKeep(s.cfg, s.Trace.Status, s.Trace.TotalCost)
+	if !keep {
+		s.discard = true
+		s.stats.SampledOutTraces.Add(1)
+		log.Printf("[obs] sample drop trace=%s status=%s cost=%.6f sampled_out=%d",
+			s.Trace.TraceID, s.Trace.Status, s.Trace.TotalCost, s.stats.SampledOutTraces.Load())
+	}
+
 	close(s.spanCh)
 	s.traceCh <- s.Trace // 阻塞发送，配合 waitDone 保证 Trace 落盘
 }

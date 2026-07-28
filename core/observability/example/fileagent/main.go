@@ -35,10 +35,11 @@ func main() {
 	}
 
 	cfg := collector.Config{
-		SessionID: "file-demo",
-		UserInput: *q,
-		Redact:    *redact,
-		NoContent: *noContent,
+		SessionID:         "file-demo",
+		UserInput:         *q,
+		Redact:            *redact,
+		NoContent:         *noContent,
+		SampleSuccessRate: -1, // 演示全留；0 会丢弃成功 Trace
 	}
 
 	traceID, answer, err := runOnce(context.Background(), store, cfg, *q)

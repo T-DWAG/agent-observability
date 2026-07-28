@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"sync"
+	"time"
 
 	"github.com/T-Dwag/agent-observability/model"
 )
@@ -123,4 +124,79 @@ func (m *MemoryStorage) ListEvaluations(_ context.Context, traceID string) ([]*m
 		}
 	}
 	return out, nil
+}
+
+// PurgeTrace 按 tenantID + traceID 删除单条 Trace，并级联清理其 Span。
+//
+// 语法要点：
+//   - kept := m.Traces[:0] 复用底层数组做原地过滤，避免额外分配。
+//   - normalizeTenantID 统一空租户语义，保证与写入侧一致。
+//
+// 逻辑：
+//  1. 加写锁，保证与并发读写互斥。
+//  2. 仅删除「TraceID 匹配且租户匹配」的 Trace。
+//  3. 再按 TraceID 删除对应 Span（Span 本身无租户字段，依赖 Trace 归属）。
+func (m *MemoryStorage) PurgeTrace(_ context.Context, tenantID, traceID string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	tenantID = normalizeTenantID(tenantID)
+
+	kept := m.Traces[:0]
+	for _, tr := range m.Traces {
+		if tr.TraceID == traceID && normalizeTenantID(tr.TenantID) == tenantID {
+			continue
+		}
+		kept = append(kept, tr)
+	}
+	m.Traces = kept
+
+	keptSp := m.Spans[:0]
+	for _, sp := range m.Spans {
+		if sp.TraceID == traceID {
+			continue
+		}
+		keptSp = append(keptSp, sp)
+	}
+	m.Spans = keptSp
+	return nil
+}
+
+// PurgeBefore 删除指定租户在 before 之前（StartTime < before）的全部 Trace，并级联清理 Span。
+//
+// 语法要点：
+//   - drop 用 map[string]struct{} 记录待删 TraceID，O(1) 判断 Span 是否级联删除。
+//   - kept := slice[:0] 同样是原地压缩，保留未命中记录。
+//
+// 逻辑：
+//  1. 加写锁后规范化 tenantID。
+//  2. 遍历 Trace：租户匹配且 StartTime.Before(before) 则计入 drop，并累加删除数 n。
+//  3. 遍历 Span：TraceID 落在 drop 中则丢弃，否则保留。
+//  4. 返回删除的 Trace 数量；本实现无失败路径，error 恒为 nil。
+func (m *MemoryStorage) PurgeBefore(_ context.Context, tenantID string, before time.Time) (int64, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	tenantID = normalizeTenantID(tenantID)
+
+	drop := map[string]struct{}{}
+	kept := m.Traces[:0]
+	var n int64
+	for _, tr := range m.Traces {
+		if normalizeTenantID(tr.TenantID) == tenantID && tr.StartTime.Before(before) {
+			drop[tr.TraceID] = struct{}{}
+			n++
+			continue
+		}
+		kept = append(kept, tr)
+	}
+	m.Traces = kept
+
+	keptSp := m.Spans[:0]
+	for _, sp := range m.Spans {
+		if _, ok := drop[sp.TraceID]; ok {
+			continue
+		}
+		keptSp = append(keptSp, sp)
+	}
+	m.Spans = keptSp
+	return n, nil
 }

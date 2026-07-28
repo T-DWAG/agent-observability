@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/T-Dwag/agent-observability/model"
 	"gorm.io/driver/postgres"
@@ -152,4 +153,44 @@ func (p *PostgresStorage) ListEvaluations(ctx context.Context, traceID string) (
 		return nil, fmt.Errorf("list evaluations: %w", err)
 	}
 	return list, nil
+}
+
+func (p *PostgresStorage) PurgeTrace(ctx context.Context, tenantID, traceID string) error {
+	tenantID = normalizeTenantID(tenantID)
+	return p.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("trace_id = ?", traceID).Delete(&model.Span{}).Error; err != nil {
+			return fmt.Errorf("purge spans: %w", err)
+		}
+		res := tx.Where("trace_id = ? AND tenant_id = ?", traceID, tenantID).Delete(&model.Trace{})
+		if res.Error != nil {
+			return fmt.Errorf("purge trace: %w", res.Error)
+		}
+		return nil
+	})
+}
+
+func (p *PostgresStorage) PurgeBefore(ctx context.Context, tenantID string, before time.Time) (int64, error) {
+	tenantID = normalizeTenantID(tenantID)
+	var n int64
+	err := p.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var ids []string
+		if err := tx.Model(&model.Trace{}).
+			Where("tenant_id = ? AND start_time < ?", tenantID, before).
+			Pluck("trace_id", &ids).Error; err != nil {
+			return err
+		}
+		if len(ids) == 0 {
+			return nil
+		}
+		if err := tx.Where("trace_id IN ?", ids).Delete(&model.Span{}).Error; err != nil {
+			return err
+		}
+		res := tx.Where("trace_id IN ?", ids).Delete(&model.Trace{})
+		if res.Error != nil {
+			return res.Error
+		}
+		n = res.RowsAffected
+		return nil
+	})
+	return n, err
 }
