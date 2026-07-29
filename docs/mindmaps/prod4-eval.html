@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>专题 4 · Eval 生产化（异步评估）</title>
+  <style>
+    :root {
+      --bg:#f5f5f7; --surface:#fff; --text:#1d1d1f;
+      --secondary:#6e6e73; --tertiary:#86868b;
+      --border:rgba(0,0,0,.08); --border-light:rgba(0,0,0,.04);
+      --shadow:0 2px 20px rgba(0,0,0,.06);
+      --blue:#0071e3; --purple:#5856d6; --green:#34c759; --orange:#ff9500;
+      --radius:20px;
+      --mono:"SF Mono",SFMono-Regular,ui-monospace,Consolas,monospace;
+    }
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{
+      font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC",sans-serif;
+      background:var(--bg);color:var(--text);
+      padding:40px 20px 72px;-webkit-font-smoothing:antialiased;
+    }
+    .wrap{max-width:1100px;margin:0 auto}
+    .nav{margin-bottom:32px}
+    .nav a{color:var(--blue);text-decoration:none;font-size:14px;font-weight:500}
+    .step{
+      display:inline-block;font-size:12px;font-weight:600;color:#ff9500;
+      background:rgba(255,149,0,.14);padding:4px 12px;border-radius:999px;margin-bottom:12px;
+    }
+    h1{font-size:clamp(28px,4vw,40px);font-weight:700;letter-spacing:-.025em;margin-bottom:10px}
+    .subtitle{font-size:17px;color:var(--secondary);line-height:1.5;margin-bottom:40px}
+    .section{
+      background:var(--surface);border-radius:var(--radius);
+      box-shadow:var(--shadow);border:1px solid var(--border);
+      margin-bottom:20px;overflow:hidden;
+    }
+    .section-head{
+      padding:18px 24px;border-bottom:1px solid var(--border);
+      display:flex;align-items:center;gap:12px;
+    }
+    .section-num{
+      width:28px;height:28px;border-radius:50%;
+      display:flex;align-items:center;justify-content:center;
+      font-size:13px;font-weight:700;color:#fff;background:var(--orange);
+    }
+    .s2 .section-num{background:var(--purple)}
+    .s3 .section-num{background:var(--green)}
+    .s4 .section-num{background:var(--blue)}
+    .section-title{font-size:17px;font-weight:600}
+    .section-body{padding:24px}
+    table{width:100%;border-collapse:collapse;font-size:12px}
+    thead th{
+      text-align:left;padding:8px 12px;font-size:10px;font-weight:700;
+      text-transform:uppercase;letter-spacing:.05em;color:var(--tertiary);
+      background:#fbfbfd;border-bottom:1px solid var(--border-light);
+    }
+    tbody td{padding:9px 12px;border-bottom:1px solid var(--border-light);line-height:1.4;vertical-align:top}
+    tbody tr:last-child td{border-bottom:none}
+    td:first-child{font-family:var(--mono);font-size:11px;font-weight:500}
+    td:nth-child(2){color:var(--purple);font-size:11px;font-weight:500}
+    .flow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:16px 0}
+    .flow-box{
+      padding:10px 18px;border-radius:10px;font-size:13px;font-weight:600;
+      white-space:nowrap;
+    }
+    .flow-http{background:rgba(0,113,227,.1);color:var(--blue)}
+    .flow-bg{background:rgba(88,86,214,.1);color:var(--purple)}
+    .flow-ok{background:rgba(52,199,89,.1);color:var(--green)}
+    .flow-err{background:rgba(255,149,0,.1);color:var(--orange)}
+    .flow-arrow{color:var(--tertiary);font-weight:700;font-size:16px}
+    .tag{
+      display:inline-block;font-size:10px;font-weight:600;
+      padding:2px 8px;border-radius:999px;margin-left:6px;
+    }
+    .tag-new{background:rgba(52,199,89,.15);color:var(--green)}
+    .tag-chg{background:rgba(255,149,0,.15);color:var(--orange)}
+    .note{
+      background:rgba(0,113,227,.05);border-left:3px solid var(--blue);
+      padding:12px 16px;border-radius:0 8px 8px 0;margin:16px 0;
+      font-size:13px;color:var(--secondary);line-height:1.6;
+    }
+    .two-col{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+    @media(max-width:768px){.two-col{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <nav class="nav"><a href="index.html">← 脑图索引</a></nav>
+  <span class="step">专题 4</span>
+  <h1>Eval 生产化（异步评估）</h1>
+  <p class="subtitle">同步 LLM-as-Judge → 异步执行 · 原子防重 · 状态追踪 · 超时重试。HTTP 不再卡等 LLM。</p>
+
+  <div class="section">
+    <div class="section-head">
+      <div class="section-num">1</div>
+      <div class="section-title">现状 vs 目标</div>
+    </div>
+    <div class="section-body">
+      <div class="two-col">
+        <div>
+          <strong style="color:var(--orange)">❌ 同步（当前）</strong>
+          <div class="flow" style="flex-direction:column;align-items:flex-start">
+            <div class="flow-box flow-http">POST /evaluations</div>
+            <div class="flow-arrow" style="display:inline">↓ 阻塞 5~30s</div>
+            <div class="flow-box flow-bg">llm.Complete() — 可能超时</div>
+            <div class="flow-arrow" style="display:inline">↓</div>
+            <div class="flow-box flow-ok">200 OK（或 504 超时）</div>
+          </div>
+          <p style="font-size:12px;color:var(--tertiary);margin-top:8px">网关超时断开 → 用户不知道评了没</p>
+        </div>
+        <div>
+          <strong style="color:var(--green)">✅ 异步（目标）</strong>
+          <div class="flow" style="flex-direction:column;align-items:flex-start">
+            <div class="flow-box flow-http">POST /evaluations</div>
+            <div class="flow-arrow" style="display:inline">↓ 原子创建唯一 overall；重复则 409</div>
+            <div class="flow-arrow" style="display:inline">↓ 毫秒级</div>
+            <div class="flow-box flow-ok">202 Accepted</div>
+            <div class="flow-arrow" style="display:inline">↓ 后台</div>
+            <div class="flow-box flow-bg">llm.Complete(timeout, retry×3)</div>
+            <div class="flow-arrow" style="display:inline">↓</div>
+            <div class="flow-box flow-ok">done / failed</div>
+          </div>
+          <p style="font-size:12px;color:var(--tertiary);margin-top:8px">GET 轮询 overall 状态 · items 只含三维评分</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section s2">
+    <div class="section-head">
+      <div class="section-num">2</div>
+      <div class="section-title">评估状态机</div>
+    </div>
+    <div class="section-body">
+      <div class="flow">
+        <div class="flow-box flow-http">pending</div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-box flow-bg">running</div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-box flow-ok">done</div>
+        <div style="margin:0 16px;font-size:18px;color:var(--tertiary)">|</div>
+        <div class="flow-arrow">↘</div>
+        <div class="flow-box flow-err">failed</div>
+      </div>
+      <table style="margin-top:16px">
+        <thead><tr><th>状态</th><th>含义</th><th>触发条件</th></tr></thead>
+        <tbody>
+          <tr><td>pending</td><td>已提交，等待执行</td><td>POST 202 返回后</td></tr>
+          <tr><td>running</td><td>LLM 调用中</td><td>后台 goroutine 启动后</td></tr>
+          <tr><td>done</td><td>评分成功落库</td><td>3 条维度评分全部 Save</td></tr>
+          <tr><td>failed</td><td>评估失败</td><td>LLM / JSON / 任一维度保存失败</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="section s3">
+    <div class="section-head">
+      <div class="section-num">3</div>
+      <div class="section-title">改动清单</div>
+    </div>
+    <div class="section-body">
+      <table>
+        <thead><tr><th>文件</th><th>变更</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>model/evaluation.go</td><td><span class="tag tag-new">字段+唯一索引</span></td><td>Status + ErrorMsg；trace_id/dimension 唯一</td></tr>
+          <tr><td>model/constants.go</td><td><span class="tag tag-new">+4 常量</span></td><td>EvalStatusPending/Running/Done/Failed</td></tr>
+          <tr><td>evaluation/llm.go</td><td><span class="tag tag-new">+RetryCompleter</span></td><td>超时 + 指数退避重试</td></tr>
+          <tr><td>evaluation/judge.go</td><td><span class="tag tag-chg">重构</span></td><td>Evaluate → EvaluateAsync + runEvaluation</td></tr>
+          <tr><td>storage/interface.go</td><td><span class="tag tag-new">+原子方法</span></td><td>CreateEvaluationJob + UpdateEvaluationStatus</td></tr>
+          <tr><td>storage/memory.go</td><td><span class="tag tag-new">+实现</span></td><td>锁内防重；状态只更新 overall</td></tr>
+          <tr><td>storage/postgres.go</td><td><span class="tag tag-new">+实现</span></td><td>ON CONFLICT 防重；状态只更新 overall</td></tr>
+          <tr><td>api/eval.go</td><td><span class="tag tag-chg">重写</span></td><td>202 / 重复 409 / 顶层状态</td></tr>
+          <tr><td>cmd/server/main.go</td><td><span class="tag tag-chg">可选</span></td><td>RetryCompleter + OBS_JUDGE_* 环境变量</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="section s4">
+    <div class="section-head">
+      <div class="section-num">4</div>
+      <div class="section-title">API 变化</div>
+    </div>
+    <div class="section-body">
+      <table>
+        <thead><tr><th>方法</th><th>路径</th><th>旧行为</th><th>新行为</th></tr></thead>
+        <tbody>
+          <tr><td>POST</td><td>/api/v1/evaluations</td><td>200 + 完整评分</td><td>首次 202；同一 trace 重复提交 409</td></tr>
+          <tr><td>GET</td><td>/api/v1/evaluations/{trace_id}</td><td>评分列表</td><td>顶层 status/error_msg + 三维 items</td></tr>
+        </tbody>
+      </table>
+      <div class="note">
+        <strong>轮询示例</strong><br>
+        <code>POST /api/v1/evaluations {"trace_id":"abc"}</code> → 202<br>
+        <code>GET /api/v1/evaluations/abc</code> → <code>{"status":"running","error_msg":"","items":[]}</code><br>
+        几秒后再 GET → <code>{"status":"done","items":[3条维度评分]}</code>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-head">
+      <div class="section-num">5</div>
+      <div class="section-title">配置</div>
+    </div>
+    <div class="section-body">
+      <table>
+        <thead><tr><th>环境变量</th><th>默认</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>OBS_JUDGE_MODEL</td><td>（空=FakeCompleter）</td><td>Judge 模型名</td></tr>
+          <tr><td>OBS_JUDGE_TIMEOUT</td><td>30s</td><td>单次 LLM 调用超时</td></tr>
+          <tr><td>OBS_JUDGE_MAX_RETRIES</td><td>3</td><td>最大重试次数</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-head">
+      <div class="section-num">6</div>
+      <div class="section-title">刻意不做</div>
+    </div>
+    <div class="section-body">
+      <table>
+        <thead><tr><th>不做</th><th>原因</th></tr></thead>
+        <tbody>
+          <tr><td>Redis / Kafka 任务队列</td><td>goroutine + channel 够演示</td></tr>
+          <tr><td>定时自动评估</td><td>手动触发，专题 5 再说</td></tr>
+          <tr><td>自定义评分维度</td><td>保持三维（accuracy/tool_usage/efficiency）</td></tr>
+          <tr><td>JSON Schema 约束输出</td><td>解析容错（截取 {...}）够用</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

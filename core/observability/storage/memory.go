@@ -105,9 +105,27 @@ func (m *MemoryStorage) ListTraces(_ context.Context, filter TraceFilter) ([]*mo
 	return matched[start:end], total, nil
 }
 
+func (m *MemoryStorage) CreateEvaluationJob(_ context.Context, eval *model.Evaluation) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	for _, existing := range m.Evaluations {
+		if existing.TraceID == eval.TraceID && existing.Dimension == "overall" {
+			return ErrorEvaluationExists
+		}
+	}
+	cp := *eval
+	m.Evaluations = append(m.Evaluations, &cp)
+	return nil
+}
+
 func (m *MemoryStorage) SaveEvaluation(_ context.Context, eval *model.Evaluation) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	for _, existing := range m.Evaluations {
+		if existing.TraceID == eval.TraceID && existing.Dimension == eval.Dimension {
+			return ErrorEvaluationExists
+		}
+	}
 	cp := *eval
 	m.Evaluations = append(m.Evaluations, &cp)
 	return nil
@@ -142,13 +160,18 @@ func (m *MemoryStorage) PurgeTrace(_ context.Context, tenantID, traceID string) 
 	tenantID = normalizeTenantID(tenantID)
 
 	kept := m.Traces[:0]
+	removed := false
 	for _, tr := range m.Traces {
 		if tr.TraceID == traceID && normalizeTenantID(tr.TenantID) == tenantID {
+			removed = true
 			continue
 		}
 		kept = append(kept, tr)
 	}
 	m.Traces = kept
+	if !removed {
+		return nil
+	}
 
 	keptSp := m.Spans[:0]
 	for _, sp := range m.Spans {
@@ -158,6 +181,13 @@ func (m *MemoryStorage) PurgeTrace(_ context.Context, tenantID, traceID string) 
 		keptSp = append(keptSp, sp)
 	}
 	m.Spans = keptSp
+	keptEval := m.Evaluations[:0]
+	for _, eval := range m.Evaluations {
+		if eval.TraceID != traceID {
+			keptEval = append(keptEval, eval)
+		}
+	}
+	m.Evaluations = keptEval
 	return nil
 }
 
@@ -198,5 +228,29 @@ func (m *MemoryStorage) PurgeBefore(_ context.Context, tenantID string, before t
 		keptSp = append(keptSp, sp)
 	}
 	m.Spans = keptSp
+	keptEval := m.Evaluations[:0]
+	for _, eval := range m.Evaluations {
+		if _, ok := drop[eval.TraceID]; !ok {
+			keptEval = append(keptEval, eval)
+		}
+	}
+	m.Evaluations = keptEval
 	return n, nil
+}
+
+func (m *MemoryStorage) UpdateEvaluationStatus(_ context.Context, traceID, status, errorMsg string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	updated := false
+	for _, e := range m.Evaluations {
+		if e.TraceID == traceID && e.Dimension == "overall" {
+			e.Status = status
+			e.ErrorMsg = errorMsg
+			updated = true
+		}
+	}
+	if !updated {
+		return ErrorNotFound
+	}
+	return nil
 }

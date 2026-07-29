@@ -20,6 +20,9 @@ type Storage interface {
 
 	ListTraces(ctx context.Context, filter TraceFilter) ([]*model.Trace, int64, error)
 
+	// CreateEvaluationJob 原子创建 dimension=overall 的任务行。
+	// 同一 trace 只允许一条；重复创建返回 ErrorEvaluationExists。
+	CreateEvaluationJob(ctx context.Context, evaluation *model.Evaluation) error
 	SaveEvaluation(ctx context.Context, evaluation *model.Evaluation) error
 	ListEvaluations(ctx context.Context, traceID string) ([]*model.Evaluation, error)
 
@@ -30,4 +33,7 @@ type Storage interface {
 	// PurgeBefore 删除指定租户 start_time < before 的 Trace（含 Span）；
 	// 返回实际删除的 Trace 条数，用于保留策略 / 定时 GC。
 	PurgeBefore(ctx context.Context, tenantID string, before time.Time) (traces int64, err error)
+
+	// UpdateEvaluationStatus 只更新 dimension=overall 的任务行，不修改三维评分。
+	UpdateEvaluationStatus(ctx context.Context, traceID string, status, errorMsg string) error
 }

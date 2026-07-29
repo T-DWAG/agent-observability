@@ -2,6 +2,7 @@ package storage
 
 import (
 	"context"
+	"errors"
 	"os"
 	"testing"
 	"time"
@@ -132,5 +133,67 @@ func TestMemoryListTraces_EndTimeUsesStartTime(t *testing.T) {
 	}
 	if total2 != 0 {
 		t.Fatalf("want 0 (start after EndTime), got %d", total2)
+	}
+}
+
+func TestMemoryEvaluationJob_IsAtomicAndStatusOnlyUpdatesOverall(t *testing.T) {
+	store := NewMemoryStorage()
+	ctx := context.Background()
+	job := &model.Evaluation{
+		TraceID: "tr-job", Dimension: "overall",
+		Status: model.EvalStatusPending, CreatedAt: time.Now().UTC(),
+	}
+	if err := store.CreateEvaluationJob(ctx, job); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.CreateEvaluationJob(ctx, job); !errors.Is(err, ErrorEvaluationExists) {
+		t.Fatalf("duplicate err=%v", err)
+	}
+	if err := store.SaveEvaluation(ctx, &model.Evaluation{
+		TraceID: "tr-job", Dimension: model.EvalDimensionAccuracy,
+		Status: model.EvalStatusDone, CreatedAt: time.Now().UTC(),
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.UpdateEvaluationStatus(ctx, "tr-job", model.EvalStatusFailed, "boom"); err != nil {
+		t.Fatal(err)
+	}
+	list, err := store.ListEvaluations(ctx, "tr-job")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, eval := range list {
+		switch eval.Dimension {
+		case "overall":
+			if eval.Status != model.EvalStatusFailed || eval.ErrorMsg != "boom" {
+				t.Fatalf("overall=%+v", eval)
+			}
+		case model.EvalDimensionAccuracy:
+			if eval.Status != model.EvalStatusDone || eval.ErrorMsg != "" {
+				t.Fatalf("dimension was polluted: %+v", eval)
+			}
+		}
+	}
+}
+
+func TestMemoryPurgeTrace_CascadesEvaluations(t *testing.T) {
+	store := NewMemoryStorage()
+	ctx := context.Background()
+	_ = store.SaveTrace(ctx, &model.Trace{
+		TraceID: "tr-purge-eval", TenantID: "default", StartTime: time.Now().UTC(),
+	})
+	_ = store.CreateEvaluationJob(ctx, &model.Evaluation{
+		TraceID: "tr-purge-eval", Dimension: "overall",
+		Status: model.EvalStatusPending, CreatedAt: time.Now().UTC(),
+	})
+	if err := store.PurgeTrace(ctx, "default", "tr-purge-eval"); err != nil {
+		t.Fatal(err)
+	}
+	list, err := store.ListEvaluations(ctx, "tr-purge-eval")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(list) != 0 {
+		t.Fatalf("evaluations=%d want 0", len(list))
 	}
 }

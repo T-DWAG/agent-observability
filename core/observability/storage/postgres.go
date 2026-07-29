@@ -135,9 +135,28 @@ func (p *PostgresStorage) SaveSpan(ctx context.Context, span *model.Span) error 
 	return nil
 }
 
+func (p *PostgresStorage) CreateEvaluationJob(ctx context.Context, eval *model.Evaluation) error {
+	res := p.db.WithContext(ctx).
+		Clauses(clause.OnConflict{DoNothing: true}).
+		Create(eval)
+	if res.Error != nil {
+		return fmt.Errorf("create evaluation job: %w", res.Error)
+	}
+	if res.RowsAffected == 0 {
+		return ErrorEvaluationExists
+	}
+	return nil
+}
+
 func (p *PostgresStorage) SaveEvaluation(ctx context.Context, eval *model.Evaluation) error {
-	if err := p.db.WithContext(ctx).Create(eval).Error; err != nil {
-		return fmt.Errorf("save evaluation: %w", err)
+	res := p.db.WithContext(ctx).
+		Clauses(clause.OnConflict{DoNothing: true}).
+		Create(eval)
+	if res.Error != nil {
+		return fmt.Errorf("save evaluation: %w", res.Error)
+	}
+	if res.RowsAffected == 0 {
+		return ErrorEvaluationExists
 	}
 	return nil
 }
@@ -158,12 +177,24 @@ func (p *PostgresStorage) ListEvaluations(ctx context.Context, traceID string) (
 func (p *PostgresStorage) PurgeTrace(ctx context.Context, tenantID, traceID string) error {
 	tenantID = normalizeTenantID(tenantID)
 	return p.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var count int64
+		if err := tx.Model(&model.Trace{}).
+			Where("trace_id = ? AND tenant_id = ?", traceID, tenantID).
+			Count(&count).Error; err != nil {
+			return fmt.Errorf("check trace ownership: %w", err)
+		}
+		if count == 0 {
+			return nil
+		}
 		if err := tx.Where("trace_id = ?", traceID).Delete(&model.Span{}).Error; err != nil {
 			return fmt.Errorf("purge spans: %w", err)
 		}
-		res := tx.Where("trace_id = ? AND tenant_id = ?", traceID, tenantID).Delete(&model.Trace{})
-		if res.Error != nil {
-			return fmt.Errorf("purge trace: %w", res.Error)
+		if err := tx.Where("trace_id = ?", traceID).Delete(&model.Evaluation{}).Error; err != nil {
+			return fmt.Errorf("purge evaluations: %w", err)
+		}
+		if err := tx.Where("trace_id = ? AND tenant_id = ?", traceID, tenantID).
+			Delete(&model.Trace{}).Error; err != nil {
+			return fmt.Errorf("purge trace: %w", err)
 		}
 		return nil
 	})
@@ -185,6 +216,9 @@ func (p *PostgresStorage) PurgeBefore(ctx context.Context, tenantID string, befo
 		if err := tx.Where("trace_id IN ?", ids).Delete(&model.Span{}).Error; err != nil {
 			return err
 		}
+		if err := tx.Where("trace_id IN ?", ids).Delete(&model.Evaluation{}).Error; err != nil {
+			return err
+		}
 		res := tx.Where("trace_id IN ?", ids).Delete(&model.Trace{})
 		if res.Error != nil {
 			return res.Error
@@ -193,4 +227,22 @@ func (p *PostgresStorage) PurgeBefore(ctx context.Context, tenantID string, befo
 		return nil
 	})
 	return n, err
+}
+
+func (p *PostgresStorage) UpdateEvaluationStatus(ctx context.Context, traceID, status, errorMsg string) error {
+	updates := map[string]interface{}{
+		"status":    status,
+		"error_msg": errorMsg,
+	}
+	res := p.db.WithContext(ctx).
+		Model(&model.Evaluation{}).
+		Where("trace_id = ? AND dimension = ?", traceID, "overall").
+		Updates(updates)
+	if res.Error != nil {
+		return fmt.Errorf("update evaluation status: %w", res.Error)
+	}
+	if res.RowsAffected == 0 {
+		return ErrorNotFound
+	}
+	return nil
 }
