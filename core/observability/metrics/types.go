@@ -13,6 +13,8 @@ type Snapshot struct {
 	AvgDurationMs float64    `json:"avg_duration_ms"` // 平均 Trace 耗时（毫秒）
 	SuccessRate   float64    `json:"success_rate"`    // 成功率，取值范围 0~1
 	TopTools      []ToolStat `json:"top_tools"`       // 调用次数最多的工具排行
+
+	RefreshedAt time.Time `json:"refreshed_at"`
 }
 
 // ToolStat 单个工具的调用统计。

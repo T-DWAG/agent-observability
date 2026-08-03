@@ -36,4 +36,22 @@ type Storage interface {
 
 	// UpdateEvaluationStatus 只更新 dimension=overall 的任务行，不修改三维评分。
 	UpdateEvaluationStatus(ctx context.Context, traceID string, status, errorMsg string) error
+
+	// SaveMetricSnapshot 保存某租户、某 scope 最新的指标快照。
+	// 入参:
+	//   - ctx：上下文
+	//   - snapshot：待保存的指标快照结构体指针
+	// 返回:
+	//   - error：保存过程中的错误（如有），否则为 nil
+	SaveMetricSnapshot(ctx context.Context, snapshot *model.MetricSnapshot) error
+
+	// GetMetricSnapshot 获取某租户、某 scope 最近一次成功刷新的指标快照。
+	// 入参:
+	//   - ctx: 上下文
+	//   - tenantID: 租户 ID
+	//   - scope: 指标作用域
+	// 返回:
+	//   - *model.MetricSnapshot: 匹配的指标快照结构体指针，若无返回 nil
+	//   - error: 读取过程中的错误（如有），否则为 nil
+	GetMetricSnapshot(ctx context.Context, tenantID, scope string) (*model.MetricSnapshot, error)
 }

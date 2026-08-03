@@ -23,7 +23,8 @@ const (
 
 // 表名 — GORM 默认会用结构体名复数化，显式指定更清晰
 const (
-	TableSpans       = "obs_spans"
-	TableTraces      = "obs_traces"
-	TableEvaluations = "obs_evaluations"
+	TableSpans           = "obs_spans"
+	TableTraces          = "obs_traces"
+	TableEvaluations     = "obs_evaluations"
+	TableMetricSnapshots = "obs_metric_snapshots"
 )

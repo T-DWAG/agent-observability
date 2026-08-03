@@ -21,7 +21,7 @@ func TestGetMetrics(t *testing.T) {
 		Status: model.SpanStatusSuccess, TotalTokens: 10, DurationMs: 100,
 	})
 
-	srv := NewServer(store).WithAggregator(metrics.NewAggregator(store, time.Minute))
+	srv := NewServer(store).WithAggregator(metrics.NewAggregator(store))
 	req := withTestAuth(httptest.NewRequest(http.MethodGet, "/api/v1/metrics?scope=last_24h", nil))
 	rec := httptest.NewRecorder()
 	srv.Handler(testAPIKeys()).ServeHTTP(rec, req)
@@ -35,11 +35,14 @@ func TestGetMetrics(t *testing.T) {
 	if body.TotalTraces != 1 {
 		t.Fatalf("traces=%d", body.TotalTraces)
 	}
+	if body.RefreshedAt.IsZero() {
+		t.Fatal("refreshed_at should be non-zero")
+	}
 }
 
 func TestGetMetrics_BadScope(t *testing.T) {
 	store := storage.NewMemoryStorage()
-	srv := NewServer(store).WithAggregator(metrics.NewAggregator(store, 0))
+	srv := NewServer(store).WithAggregator(metrics.NewAggregator(store))
 	req := withTestAuth(httptest.NewRequest(http.MethodGet, "/api/v1/metrics?scope=nope", nil))
 	rec := httptest.NewRecorder()
 	srv.Handler(testAPIKeys()).ServeHTTP(rec, req)

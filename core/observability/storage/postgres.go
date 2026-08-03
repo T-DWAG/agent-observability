@@ -246,3 +246,52 @@ func (p *PostgresStorage) UpdateEvaluationStatus(ctx context.Context, traceID, s
 	}
 	return nil
 }
+
+// SaveMetricSnapshot 将传入的 MetricSnapshot 保存到数据库中。
+// 若 (tenant_id, scope) 唯一性冲突则更新所有字段，否则插入新纪录。
+func (p *PostgresStorage) SaveMetricSnapshot(
+	ctx context.Context,
+	snapshot *model.MetricSnapshot,
+) error {
+	// 归一化租户ID，确保租户兼容性
+	snapshot.TenantID = normalizeTenantID(snapshot.TenantID)
+
+	// 使用gorm的OnConflict机制，当 (tenant_id, scope) 冲突时执行更新（upsert）
+	if err := p.db.WithContext(ctx).
+		Clauses(clause.OnConflict{
+			Columns: []clause.Column{
+				{Name: "tenant_id"},
+				{Name: "scope"},
+			},
+			UpdateAll: true, // 有冲突时更新所有字段
+		}).
+		Create(snapshot).Error; err != nil {
+		return fmt.Errorf("save metric snapshot: %w", err)
+	}
+	return nil
+}
+
+// GetMetricSnapshot 从数据库获取指定租户和scope下的 MetricSnapshot。
+// 若查无记录则返回 ErrorNotFound。
+func (p *PostgresStorage) GetMetricSnapshot(
+	ctx context.Context,
+	tenantID, scope string,
+) (*model.MetricSnapshot, error) {
+	// 归一化租户ID，确保租户兼容性
+	tenantID = normalizeTenantID(tenantID)
+	var snapshot model.MetricSnapshot
+
+	// 根据 tenant_id 和 scope 查询唯一的 MetricSnapshot 记录
+	err := p.db.WithContext(ctx).
+		Where("tenant_id = ? AND scope = ?", tenantID, scope).
+		First(&snapshot).Error
+	// 记录不存在时返回自定义的 ErrorNotFound
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, ErrorNotFound
+	}
+	// 其他错误时返回详细错误信息
+	if err != nil {
+		return nil, fmt.Errorf("get metric snapshot: %w", err)
+	}
+	return &snapshot, nil
+}

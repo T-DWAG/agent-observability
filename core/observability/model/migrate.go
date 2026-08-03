@@ -19,7 +19,7 @@ func AutoMigrate(db *gorm.DB) error {
 		}
 	}
 
-	if err := db.AutoMigrate(&Span{}, &Trace{}, &Evaluation{}); err != nil {
+	if err := db.AutoMigrate(&Span{}, &Trace{}, &Evaluation{}, &MetricSnapshot{}); err != nil {
 		return err
 	}
 	// 兼容专题 4 初版的 Error 字段：迁移到明确映射的 error_msg。

@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>专题 5 · Metrics 预聚合</title>
+  <style>
+    :root{
+      --bg:#f4f4f1;--surface:#fff;--text:#171714;--muted:#6f706a;
+      --line:#dedfd9;--accent:#176b5b;--soft:#e5f0ed;--warn:#9a5a16;
+      --mono:"SFMono-Regular",Consolas,monospace;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif}
+    .wrap{max-width:1120px;margin:0 auto;padding:40px 22px 72px}
+    nav a{color:var(--accent);text-decoration:none;font-size:13px}
+    header{padding:42px 0 34px;border-bottom:1px solid var(--line)}
+    .eyebrow{font:600 12px var(--mono);letter-spacing:.08em;color:var(--accent);text-transform:uppercase}
+    h1{font-size:clamp(34px,5vw,58px);line-height:1.02;letter-spacing:-.035em;margin:14px 0}
+    .lead{max-width:760px;color:var(--muted);font-size:18px;line-height:1.6;margin:0}
+    .grid{display:grid;grid-template-columns:repeat(12,1fr);gap:16px;margin-top:24px}
+    section{background:var(--surface);border:1px solid var(--line);padding:24px}
+    .wide{grid-column:span 12}.half{grid-column:span 6}.third{grid-column:span 4}
+    h2{font-size:18px;margin:0 0 18px}.num{font:600 11px var(--mono);color:var(--accent);margin-right:8px}
+    .flow{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+    .node{padding:11px 14px;background:#f7f7f4;border:1px solid var(--line);font:600 12px var(--mono)}
+    .node.hot{background:var(--soft);border-color:#b8d3cc;color:var(--accent)}
+    .arrow{color:var(--muted)}
+    .compare{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+    .pane{padding:18px;background:#f8f8f5;border-left:3px solid var(--line)}
+    .pane.good{border-left-color:var(--accent)}
+    .pane strong{display:block;margin-bottom:10px}.pane p{margin:0;color:var(--muted);line-height:1.55;font-size:14px}
+    ul{padding-left:18px;margin:0;color:var(--muted);line-height:1.7;font-size:14px}
+    code{font-family:var(--mono);font-size:12px;color:var(--accent)}
+    .contract{display:grid;grid-template-columns:140px 1fr;gap:0;border-top:1px solid var(--line)}
+    .contract div{padding:10px 8px;border-bottom:1px solid var(--line);font-size:13px}
+    .contract div:nth-child(odd){font-family:var(--mono);font-size:12px;color:var(--accent)}
+    .callout{padding:16px 18px;background:#fff7eb;border-left:3px solid var(--warn);font-size:13px;line-height:1.6;color:#704711}
+    footer{margin-top:28px;padding-top:20px;border-top:1px solid var(--line);font-size:12px;color:var(--muted)}
+    @media(max-width:760px){.half,.third{grid-column:span 12}.compare{grid-template-columns:1fr}.contract{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <nav><a href="index.html">← 脑图索引</a></nav>
+  <header>
+    <div class="eyebrow">Production Topic 05</div>
+    <h1>Metrics 预聚合</h1>
+    <p class="lead">后台重算、持久化物化快照。把 HTTP 请求里的 N+1 扫描移出读路径，让查询稳定为一次 tenant + scope 读取。</p>
+  </header>
+
+  <div class="grid">
+    <section class="wide">
+      <h2><span class="num">01</span>主链路</h2>
+      <div class="flow">
+        <div class="node">Ticker / Cold Start</div><div class="arrow">→</div>
+        <div class="node">Aggregator.calculate</div><div class="arrow">→</div>
+        <div class="node">Trace + Span 扫描</div><div class="arrow">→</div>
+        <div class="node hot">Upsert Snapshot</div><div class="arrow">→</div>
+        <div class="node hot">GET O(1)</div>
+      </div>
+    </section>
+
+    <section class="half">
+      <h2><span class="num">02</span>改造前后</h2>
+      <div class="compare">
+        <div class="pane">
+          <strong>现在：请求时聚合</strong>
+          <p>cache miss 后分页读 Trace，并逐条查 Span。进程重启缓存清空，多实例不共享。</p>
+        </div>
+        <div class="pane good">
+          <strong>专题 5：持久化快照</strong>
+          <p>后台承担重计算。API 按 tenant + scope 读取一行，重启后快照仍然存在。</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="half">
+      <h2><span class="num">03</span>为什么不直接增量 +1</h2>
+      <ul>
+        <li><code>SaveTrace</code> 有重试与 upsert，不是 exactly-once 事件。</li>
+        <li>采样淘汰、TTL 删除后需要反向扣减。</li>
+        <li>工具计数依赖 Span 完成时机。</li>
+        <li>无幂等账本时，增量桶会快但不准。</li>
+      </ul>
+    </section>
+
+    <section class="third">
+      <h2><span class="num">04</span>唯一键</h2>
+      <div class="contract">
+        <div>tenant_id</div><div>租户隔离</div>
+        <div>scope</div><div>24h / 7d / 30d</div>
+        <div>UNIQUE</div><div>同组合覆盖写</div>
+      </div>
+    </section>
+
+    <section class="third">
+      <h2><span class="num">05</span>职责</h2>
+      <ul>
+        <li>Calculator：从真实数据算对</li>
+        <li>Storage：快照 upsert / get</li>
+        <li>Refresher：周期重算</li>
+        <li>API：读取；冷启动兜底</li>
+      </ul>
+    </section>
+
+    <section class="third">
+      <h2><span class="num">06</span>新鲜度</h2>
+      <ul>
+        <li>默认刷新：<code>1m</code></li>
+        <li>返回 <code>refreshed_at</code></li>
+        <li>失败保留旧快照</li>
+        <li>最终一致，不伪装实时</li>
+      </ul>
+    </section>
+
+    <section class="half">
+      <h2><span class="num">07</span>正确性闭环</h2>
+      <div class="flow">
+        <div class="node">采样 / TTL</div><div class="arrow">→</div>
+        <div class="node">原始 Trace 改变</div><div class="arrow">→</div>
+        <div class="node hot">下一轮全量重算纠正</div>
+      </div>
+      <div class="callout" style="margin-top:18px">刷新前不删除旧快照。某次计算失败只记录日志，查询继续使用最后一次成功结果。</div>
+    </section>
+
+    <section class="half">
+      <h2><span class="num">08</span>验收</h2>
+      <ul>
+        <li>相同 tenant + scope 刷新两次仍只有一行。</li>
+        <li>A/B 租户快照互不影响。</li>
+        <li>Refresh 后新增 Trace，GET 仍读旧快照；再次 Refresh 才更新。</li>
+        <li>Purge 后刷新能纠正总数。</li>
+        <li>PostgreSQL 重启后快照仍可读取。</li>
+      </ul>
+    </section>
+
+    <section class="wide">
+      <h2><span class="num">09</span>边界</h2>
+      <div class="callout">本章不做分钟/小时桶、幂等消费账本、ClickHouse、Redis、Eval 趋势和分布式锁。等后台全量重算真的成为瓶颈，再升级到“时间桶 + 定期校准”。</div>
+    </section>
+  </div>
+
+  <footer>专题 5 · Metrics 预聚合 · 概念 → 脑图 → 手敲清单 → go test → 质检</footer>
+</div>
+</body>
+</html>

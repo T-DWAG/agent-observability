@@ -9,10 +9,11 @@ import (
 )
 
 type MemoryStorage struct {
-	mu          sync.RWMutex
-	Traces      []*model.Trace
-	Spans       []*model.Span
-	Evaluations []*model.Evaluation
+	mu              sync.RWMutex
+	Traces          []*model.Trace
+	Spans           []*model.Span
+	Evaluations     []*model.Evaluation
+	MetricSnapshots []*model.MetricSnapshot
 }
 
 func NewMemoryStorage() *MemoryStorage {
@@ -253,4 +254,53 @@ func (m *MemoryStorage) UpdateEvaluationStatus(_ context.Context, traceID, statu
 		return ErrorNotFound
 	}
 	return nil
+}
+
+func (m *MemoryStorage) SaveMetricSnapshot(_ context.Context, snapshot *model.MetricSnapshot) error {
+	//s
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	tenantID := normalizeTenantID(snapshot.TenantID)
+	for i, existing := range m.MetricSnapshots {
+		// 匹配：若已有快照的 TenantID（标准化后）和 Scope 与待存 snapshot 完全一致
+		if normalizeTenantID(existing.TenantID) == tenantID && existing.Scope == snapshot.Scope {
+			// 更新：直接修改已有快照的值
+			cp := *snapshot
+			cp.TenantID = tenantID
+			m.MetricSnapshots[i] = &cp
+			return nil
+		}
+	}
+
+	// 新增：若无匹配快照，则创建新快照
+	cp := *snapshot
+	cp.TenantID = tenantID
+	m.MetricSnapshots = append(m.MetricSnapshots, &cp)
+	return nil
+}
+
+// GetMetricSnapshot 方法：根据标准化后的 tenantID 和 scope 查询内存中的 MetricSnapshot。
+// 逻辑：
+// 1. 加读锁，保证并发安全；
+// 2. 标准化传入的 tenantID；
+// 3. 遍历已有快照，若某快照的（已标准化）TenantID 和 Scope 与入参完全一致，则复制一份并返回；
+// 4. 若未找到，则返回 ErrorNotFound。
+func (m *MemoryStorage) GetMetricSnapshot(
+	_ context.Context,
+	tenantID, scope string,
+) (*model.MetricSnapshot, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	tenantID = normalizeTenantID(tenantID)
+	for _, snapshot := range m.MetricSnapshots {
+		// 判断已保存的快照是否与目标 tenantID 和 scope 完全匹配
+		if normalizeTenantID(snapshot.TenantID) == tenantID && snapshot.Scope == scope {
+			cp := *snapshot // 解引用复制，cp 是新对象；即便返回指针，指向的是副本，外部无法影响底层切片内容
+			return &cp, nil
+		}
+	}
+	// 未找到匹配快照
+	return nil, ErrorNotFound
 }

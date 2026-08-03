@@ -226,7 +226,7 @@
         <thead><tr><th>不做</th><th>原因</th></tr></thead>
         <tbody>
           <tr><td>Redis / Kafka 任务队列</td><td>goroutine + channel 够演示</td></tr>
-          <tr><td>定时自动评估</td><td>手动触发，专题 5 再说</td></tr>
+          <tr><td>定时自动评估</td><td>属于 Eval 调度，不并入专题 5 Metrics 预聚合</td></tr>
           <tr><td>自定义评分维度</td><td>保持三维（accuracy/tool_usage/efficiency）</td></tr>
           <tr><td>JSON Schema 约束输出</td><td>解析容错（截取 {...}）够用</td></tr>
         </tbody>
