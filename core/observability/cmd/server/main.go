@@ -11,6 +11,7 @@ import (
 
 	"github.com/T-Dwag/agent-observability/api"
 	"github.com/T-Dwag/agent-observability/evaluation"
+	otelsink "github.com/T-Dwag/agent-observability/exporter/otel"
 	"github.com/T-Dwag/agent-observability/metrics"
 	"github.com/T-Dwag/agent-observability/model"
 	"github.com/T-Dwag/agent-observability/storage"
@@ -94,8 +95,23 @@ func main() {
 		tenantIDs(keys),
 		refreshInterval,
 	)
+	var otelExporter *otelsink.Exporter
+	if os.Getenv("OBS_OTEL_ENDPOINT") != "" {
+		var err error
+		otelExporter, err = otelsink.NewFromEnv(store)
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer func() {
+			shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			if err := otelExporter.Shutdown(shutdownCtx); err != nil {
+				log.Printf("[obs] otel shutdown failed: %v", err)
+			}
+		}()
+	}
 
-	srv := api.NewServer(store).WithJudge(judge).WithAggregator(agg)
+	srv := api.NewServer(store).WithJudge(judge).WithAggregator(agg).WithOTelExporter(otelExporter)
 	log.Printf("listening on %s", addr)
 	log.Fatal(http.ListenAndServe(addr, srv.Handler(keys)))
 }
